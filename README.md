@@ -120,6 +120,7 @@ Mac 目前保存每篇文章的最新一次音频。主动改变正文、音色�
 ```sh
 python3 -m unittest discover -s tests -v
 swift test --package-path macos
+python3 script/verify_bundle.py ~/Applications/微信文章播客.app
 ```
 
 测试覆盖跨公众号归一、去重、Markdown 正文清理、RSS 元数据、20/21 集替换、重复发布、缺失/损坏音频、并发冲突、切换失败及旧文件清理。机器检查无法替代人工试听或 Cardputer 实机播放验收。

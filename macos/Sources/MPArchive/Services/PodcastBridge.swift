@@ -14,13 +14,13 @@ final class PodcastBridge: @unchecked Sendable {
   let output: Data = try await Task.detached { [self] in
    let executable = (python as NSString).expandingTildeInPath
    guard executable.hasPrefix("/"),FileManager.default.isExecutableFile(atPath:executable) else {throw APIError(code:0,message:"找不到可执行的 Python：\(executable)。请在播客设置中指定已安装的 Python 3 路径。")}
-   let p = Process();p.executableURL = URL(fileURLWithPath:executable);p.arguments = ["-m","wechat2podcast.gui"]
+   let p = Process();p.executableURL = URL(fileURLWithPath:executable);p.arguments = ["-B","-m","wechat2podcast.gui"]
    let bundled = Bundle.main.resourceURL?.appendingPathComponent("python")
    let development = URL(fileURLWithPath:#filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
    if let bundled,FileManager.default.fileExists(atPath:bundled.appendingPathComponent("wechat2podcast/gui.py").path) {p.currentDirectoryURL = bundled}
    else if FileManager.default.fileExists(atPath:development.appendingPathComponent("wechat2podcast/gui.py").path) {p.currentDirectoryURL = development}
    else {throw APIError(code:0,message:"找不到应用内的 Python 播客组件，请重新构建应用") }
-   var env = ProcessInfo.processInfo.environment;env["PATH"] = "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:" + (env["PATH"] ?? "");p.environment = env
+   var env = ProcessInfo.processInfo.environment;env["PATH"] = "/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:" + (env["PATH"] ?? "");env["PYTHONDONTWRITEBYTECODE"] = "1";p.environment = env
    let stdin = Pipe(),stdout = Pipe(),stderr = Pipe();p.standardInput = stdin;p.standardOutput = stdout;p.standardError = stderr
    setProcess(p)
    defer {setProcess(nil)}

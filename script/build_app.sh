@@ -16,6 +16,11 @@ fi
 swift build --package-path "$PROJECT_DIR/macos"
 BUILD_DIR="$(swift build --package-path "$PROJECT_DIR/macos" --show-bin-path)"
 mkdir -p "$BUNDLE/Contents/MacOS" "$BUNDLE/Contents/Resources/python/wechat2podcast"
+python3 - "$BUNDLE" <<'PY'
+import pathlib,shutil,sys
+for path in (pathlib.Path(sys.argv[1])/'Contents/Resources/python').rglob('__pycache__'):
+    if path.is_dir(): shutil.rmtree(path)
+PY
 cp "$BUILD_DIR/MPArchive" "$BUNDLE/Contents/MacOS/MPArchive"
 cp "$PROJECT_DIR/mp_article_downloader_src/mp_article_batch_downloader" "$BUNDLE/Contents/Resources/mp_article_batch_downloader"
 cp "$PROJECT_DIR/wechat2podcast/"*.py "$BUNDLE/Contents/Resources/python/wechat2podcast/"
@@ -54,7 +59,13 @@ codesign --force --sign "$SIGN_IDENTITY" "$BUNDLE"
 if [[ "$MODE" == "--install" ]]; then
   python3 "$PROJECT_DIR/script/migrate_podcast.py"
   mkdir -p "$HOME/Applications"
+  python3 - "$HOME/Applications/微信文章播客.app/Contents/Resources/python" <<'PY'
+import pathlib,shutil,sys
+for path in pathlib.Path(sys.argv[1]).rglob('__pycache__'):
+    if path.is_dir(): shutil.rmtree(path)
+PY
   ditto "$BUNDLE" "$HOME/Applications/微信文章播客.app"
+  codesign --verify --deep --strict "$HOME/Applications/微信文章播客.app"
   /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "$HOME/Applications/微信文章播客.app"
   open "$HOME/Applications/微信文章播客.app"
 fi
