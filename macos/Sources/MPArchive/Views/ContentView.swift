@@ -4,10 +4,13 @@ import AppKit
 struct ContentView: View {
  @ObservedObject var backend: Backend
  @ObservedObject var library: Library
+ @ObservedObject var podcast: PodcastStore
  var body: some View {
   NavigationSplitView {
    List(selection: $library.selected) {
     Section {
+     Label("音频库",systemImage:"waveform").tag("podcast")
+     Label("在线播客",systemImage:"antenna.radiowaves.left.and.right").tag("online")
      Label("开始归档",systemImage:"books.vertical").tag("welcome")
      Label("下载中心",systemImage:"arrow.down.circle").tag("downloads")
     }
@@ -32,15 +35,19 @@ struct ContentView: View {
     if !backend.running || backend.busy {
      HStack {if backend.busy {ProgressView().controlSize(.small)};Text(backend.message).font(.callout);Spacer();if !backend.busy {Button("启动服务"){Task{await backend.launch()}}}}.padding().background(.quaternary)
     }
-    if library.selected == "downloads" {DownloadsView(library: library, backend: backend)}
+    if library.selected == "podcast" {PodcastView(store:podcast)}
+    else if library.selected == "online" {OnlinePodcastView(store:podcast)}
+    else if library.selected == "downloads" {DownloadsView(library: library, backend: backend)}
     else if library.account != nil {ArticlesView(library: library, backend: backend)}
     else {WelcomeView(backend: backend, library: library)}
+    if library.selected == "podcast" || library.selected == "online" {Divider();PodcastActivityView(store:podcast)}
     if !library.message.isEmpty {
      Divider()
      HStack {Image(systemName:"info.circle").foregroundStyle(.secondary);Text(library.message).font(.callout).textSelection(.enabled);Spacer();Button{library.message = ""}label:{Image(systemName:"xmark")}.buttonStyle(.plain)}.padding(12)
     }
    }
   }
+  .sheet(item:$podcast.plan) {plan in PublicationPreviewView(store:podcast,plan:plan)}
   .tint(Color(red:0.12,green:0.48,blue:0.34))
   .onChange(of:library.selected){_,_ in Task{await library.selectionChanged()}}
  }

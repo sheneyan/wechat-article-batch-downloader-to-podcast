@@ -3,7 +3,7 @@ import Foundation
 
 @MainActor final class Library: ObservableObject {
  @Published var accounts: [Account] = []
- @Published var selected: String? = "welcome"
+ @Published var selected: String? = "podcast"
  @Published var scan = Scan.empty
  @Published var tasks: [DownloadItem] = []
  @Published var taskTotal = 0

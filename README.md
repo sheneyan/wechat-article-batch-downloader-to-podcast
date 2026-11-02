@@ -1,123 +1,129 @@
-<p align="center">
-  <img src="verification/app-icon.png" width="112" alt="公众号文章下载器图标">
-</p>
+# 微信文章播客 · Mac App
 
-<h1 align="center">公众号文章下载器</h1>
+基于 [公众号文章下载器](https://github.com/dingaiminGIT/wechat-article-batch-downloader) 扩展的个人 Mac 应用，把文章下载、系统 TTS、本地音频和线上播客放到同一个界面。
 
-<p align="center">在 Mac 上读取并批量归档任意可访问微信公众号的历史文章，保存为 Markdown、HTML、纯文本和 JSONL 语料。</p>
+侧栏保留原有公众号归档与下载中心，并增加：
 
-<p align="center">
-  <a href="https://github.com/dingaiminGIT/wechat-article-batch-downloader/releases/latest/download/MPArticleDownloader-macOS-arm64.zip"><strong>下载 macOS 应用</strong></a>
-  ·
-  <a href="DESKTOP.md">安装说明</a>
-  ·
-  <a href="https://github.com/dingaiminGIT/wechat-article-batch-downloader/releases">全部版本</a>
-</p>
+- **音频库**：跨公众号统一列表，扫描归档、多选转换、试听、播放、Finder 定位；分别显示本地音频与线上状态，音频版本不同会提示待更新。
+- **在线播客**：查看服务器当前最多 20 集、大小和最近刷新时间；复制 RSS、预览发布、手动下架。网络错误显示未知/待刷新，保留上次列表作参考。
+- **设置与连接 → 播客**：归档目录、Python、音色和语速；HTTPS 节目地址、SSH 主机/别名、用户、端口、私钥路径及服务器目录。支持环境检查、SSH 测试和发布组件部署/更新。
 
-> 当前应用支持 macOS 14 及以上、Apple Silicon。安装包尚未经过 Apple 公证，第一次打开时请按下文完成系统确认。
+**默认手动发布**：下载和生成音频都不会自动上传。发布预览列出将上线/更新和被淘汰的文章，确认后才执行。
 
-## 1.0.3 更新
+## 构建和安装
 
-- 修复部分公众号明明有多篇文章，历史接口却返回成功空页并触发 `unexpected end of JSON input` 的问题。
-- 兼容微信当前的作者文章列表：自动识别 `author_id`，并使用 `from_article_id` 游标读取后续页面。
-- 旧历史接口首屏为空时自动切换到作者列表，不再把“0 篇”误判为读取完成。
-- 网页内备用面板同步使用新链路；读取中断时保留已发现的文章和进度，并显示面向用户的继续提示。
-- 诊断日志不再输出文章列表会话 Cookie。
+需要 Apple Silicon Mac、macOS 14+、Xcode/Swift、Go，以及本机 Python 3.11+、ffmpeg/ffprobe。Python 和 ffmpeg 不随 App 打包，设置中可指定 Python 路径；“检查本机环境”会列出缺少的组件。
 
-![公众号文章下载器主界面](verification/desktop-home.png)
-
-## 它解决什么问题
-
-微信公众号适合阅读，却不适合整理大量历史内容。公众号文章下载器把“逐篇打开、复制、保存图片、整理文件名”变成一次本地归档：在电脑微信里打开目标公众号任意一篇文章，应用即可读取该公众号当前账号有权访问的历史列表，并把文章批量保存到 Mac。
-
-它不要求你管理目标公众号，适合个人资料备份、写作研究、知识库整理和 AI 语料准备。
-
-## 主要功能
-
-- **读取全部历史**：支持最近文章、全部历史和日期范围，读取中可暂停并从断点继续。
-- **四种本地输出**：每篇文章同时生成 Markdown、HTML 和 TXT，并维护一份去重的 `style_corpus.jsonl`。
-- **正文与图片一起保存**：Markdown 引用本地图片，HTML 保留排版并可离线打开。
-- **安全 / 快速模式**：安全模式适合大批量长期归档；快速模式遇到短暂访问验证会自动降速重试。
-- **跳过已有文章**：使用稳定文章标识去重，重复下载时可跳过或覆盖。
-- **清楚的下载中心**：按公众号显示 `已完成/总数`、失败数、开始与结束时间、总耗时和平均速度。
-- **一个公众号一个目录**：目录直接使用公众号名称，可从应用一键在 Finder 中打开。
-- **后台静默运行**：不再弹出终端窗口；关闭主窗口后仍可继续下载。
-
-## 下载与安装
-
-### 1. 下载
-
-[**下载公众号文章下载器 for macOS（Apple Silicon）**](https://github.com/dingaiminGIT/wechat-article-batch-downloader/releases/latest/download/MPArticleDownloader-macOS-arm64.zip)
-
-下载后解压，把“公众号文章下载器”拖入“应用程序”目录。
-
-### 2. 第一次打开
-
-当前版本没有 Apple 公证。如果 macOS 阻止打开：
-
-1. 在 Finder 中尝试打开一次应用。
-2. 打开“系统设置 → 隐私与安全性”。
-3. 在安全提示旁点击“仍要打开”。
-
-应用第一次连接微信时，会将一张仅在本机生成的连接证书加入当前用户的信任列表，不需要管理员密码；证书保持不变时，后续连接不需要重复操作。
-
-### 3. 开始归档
-
-1. 在应用中点击“连接微信”。
-2. 在电脑微信里打开目标公众号任意一篇文章。
-3. 回到应用，从左侧选择识别到的公众号。
-4. 选择“全部历史”或其他范围，点击“读取文章”。
-5. 选择安全或快速模式，开始下载。
-6. 在“下载中心”查看进度，完成后点击“打开目录”。
-
-公众号历史接口使用微信文章页里的临时凭证。凭证失效时，重新在微信中打开该公众号的一篇文章即可更新连接。
-
-## 实测速度
-
-在同一台 Apple Silicon Mac 上完整归档“每天晒白牙”210篇文章：
-
-| 模式 | 结果 | 总耗时 | 平均速度 |
-|---|---:|---:|---:|
-| 安全模式 | 210/210 | 3分35秒 | 约58.6篇/分钟 |
-| 快速模式 | 210/210 | **1分53秒** | **110.7篇/分钟** |
-
-实际速度受文章图片数量、网络状况和微信访问限制影响。快速模式出现短暂访问验证时会自动降速重试；持续受限时会暂停剩余任务，避免产生大量失败记录。
-
-## 输出目录
-
-默认保存到：
-
-```text
-~/Downloads/公众号文章归档/<公众号名称>/
-├── html/                 # 保留排版的离线 HTML
-├── markdown/             # Markdown 正文
-│   └── images/           # 本地图片
-├── text/                 # 纯文本
-└── style_corpus.jsonl    # 一行一篇，适合检索、分析和 AI 处理
+```sh
+./script/build_app.sh --build-only
+# 先退出正在运行的本应用，再安装并打开
+./script/build_app.sh --install
 ```
 
-## 隐私与安全
+新 App 安装为 `~/Applications/微信文章播客.app`，bundle ID 为 `io.zi5.wechat2podcast`，不会覆盖原“公众号文章下载器”。它使用 `127.0.0.1:2142/2143`，启动时不启用系统代理；连接微信和恢复网络仍沿用上游实现。
 
-- 所有文章和图片保存在本机，应用没有账号系统，也不会上传你的文章库。
-- 本地 API 只监听 `127.0.0.1`，并限制微信文章页和回环地址来源。
-- 每台 Mac 会生成独立证书与私钥，私钥不随安装包或源码分发。
-- 退出应用会结束后台服务并恢复连接前的系统代理配置。
-- 工具不会绕过付费墙；未购买、已删除或被微信限制的内容无法保证导出。
+应用数据在 `~/Library/Application Support/Wechat2Podcast/`。`Podcast/library/` 保存完整文章与音频，`Podcast/publish.json` 保存服务器配置。安装脚本会在目标条目不存在时复制本项目 `.local/library/` 和 `.private/publish.json`，不会覆盖现有 App 数据或删除原文件。
 
-请只归档你本人有权访问的内容，并遵守版权、平台规则和适用法律。
+首次访问 Documents 等目录时按 macOS 提示授权。关闭窗口会继续任务；退出时若有音频任务运行，会提示等待或停止。中途停止发布后请刷新线上状态，因为已经到达服务器的原子提交可能完成。
 
-## 从源码构建
+## 服务器配置
 
-需要 Xcode、Swift 6 和 Go 1.20 或更新版本：
+先配置可用 SSH 密钥/agent 或 `~/.ssh/config`，再在 App 中填写服务器信息。不会保存 SSH 密码或复制私钥内容，只保存私钥路径；默认端口 22 会遵循 SSH 别名里的 Port，非默认值显式覆盖它。首次连接的主机指纹确认需要先通过正常 SSH 完成。
 
-```bash
-git clone https://github.com/dingaiminGIT/wechat-article-batch-downloader.git
-cd wechat-article-batch-downloader
-./script/build_and_run.sh --install
+HTTPS 地址可填服务器域名，保存时生成 `/wechat/<随机标识>`，也可填写已有完整节目根地址或 RSS。请保留现有节目标识；同一服务器目录已有节目时，部署会拒绝换成另一标识，避免破坏已有目录。新节目应使用独立服务器目录。
+
+“部署 / 更新发布组件”使用当前已保存的 SSH 配置上传 Python 发布代码和配置，目标目录必须可由 SSH 用户写入。它**不自动申请证书、改 DNS 或修改 nginx**。站点管理员需在已有 HTTPS 虚拟主机中将 `/wechat/` 映射到 `<服务器目录>/www`，关闭目录索引并允许 GET/HEAD 与 Range。命令行可生成 nginx 模板：
+
+```sh
+python3 deploy.py --config /path/to/publish.json --nginx-snippet .local/wechat-location.conf
 ```
 
-构建与验证细节见 [macOS 应用说明](DESKTOP.md)、[实现说明](IMPLEMENTATION.md)和[实机验证记录](VERIFICATION.md)。原命令行入口仍保留给需要自行配置端口和运行方式的用户。
+修改站点配置后先运行 `nginx -t` 再 reload。音频和 RSS 都由选定存储服务器提供，已有 CardPodcast 中转节点如何下载/压缩它们是独立流程。随机链接不进入发现目录，链接持有者可以读取内容。
 
-## 许可
+## 命令行与存储规则
 
-本项目是在 `wx_channels_download` 基础上继续开发的衍生作品，沿用上游的 **Commons Clause + MIT** 条款。源码可以查看、修改和非商业使用，但禁止将软件或实质相似的服务用于销售。完整条款见 [LICENSE](LICENSE)。
+Mac 保存完整文章和音频，RackNerd 提供统一的「微信文章」播客，最多在线 20 集。
+
+目前支持 `wechat_archived/<公众号>/style_corpus.jsonl` 配合 `markdown/` 的归档格式。保留正文段落、标题、来源、作者、原文时间及链接；图片不做 OCR，图中文字不进入朗读内容。清理只处理排版，不摘要或改写正文。
+
+## 使用
+
+需要 Python 3.11+、macOS 系统 `say`、`ffmpeg` 和 `ffprobe`。无第三方 Python 依赖。在本项目目录运行：
+
+```sh
+cd wechat-article-batch-downloader-to-podcast
+python3 -m wechat2podcast scan
+python3 -m wechat2podcast list
+```
+
+扫描默认读取 `~/Documents/wechat_archived/`，跨公众号合并，根据微信文章身份去重。扫描只保存在 Mac，不上传；归档源文件不修改。文章 ID 可使用列表中唯一的前缀。
+
+```sh
+# 生成约一分钟试听
+python3 -m wechat2podcast preview 18d748
+
+# 转换指定文章，或将所有本地文章转好备用
+python3 -m wechat2podcast render 18d748
+python3 -m wechat2podcast render --all
+
+# 可调整语速和已安装的系统音色
+python3 -m wechat2podcast preview 18d748 --voice Tingting --rate 180
+```
+
+默认婷婷、语速 180，成品为 24 kHz / 单声道 / 48 kbps MP3。`say` 的 rate 参数不是中文字符每分钟的准确计数，以实际试听为准。AIFF 中间文件用后清理。转换已完成且正文、音色、语速均不变时复用已校验的 MP3。
+
+```sh
+# 手动选择一篇或多篇：先预览上线和淘汰清单
+python3 -m wechat2podcast publish 18d748 74605f
+
+# 确定后显式发布
+python3 -m wechat2podcast publish 18d748 74605f --apply
+
+# 查看线上集合与总音频占用
+python3 -m wechat2podcast status
+
+# 查看私人订阅地址
+python3 -m wechat2podcast url
+```
+
+将 `url` 输出的 RSS 加入 CardPodcast。`.private/subscribe.txt` 中还有 `节目名,RSS地址` 单行，可**追加**到现有 TF 卡 `podcast_list.txt`，不要用这一行覆盖原有整份订阅清单。本工具不自动修改设备。
+
+## 20 集规则
+
+- 扫描、试听、转换永远不自动上传；只有 `publish --apply` 发布。
+- 一次最多手动选择 20 篇，同一篇重复发布不重复占位。
+- 选中的文章一定上线。如果超额，从原在线集合中按原文发布日期由早到晚淘汰，日期相同以文章 ID 排序。
+- 因此可以重新上线一篇很早的文章，它不会因日期太早而被当次淘汰。
+- 音频完整上传并校验 SHA256 后，使用文件锁和版本检查，原子切换 RSS 与目录；随后删除不再被引用的服务端 MP3。
+- 失败时保留旧 RSS；并发发布使目录变化时拒绝提交，重新预览后再发布。
+- 被淘汰文章仍完整留在 Mac，可再次手动发布。设备已下载的文件不受服务端删除影响；尚未下载的旧条目需刷新目录，已淘汰的音频地址会返回 404。
+- 发布过程中为安全切换，会短暂同时存放旧音频和本次新音频；发布完成后最多在线 20 篇。短期保留少量旧目录元数据，不保留淘汰音频。
+- 20 篇限制的是集数，并非固定字节限额；实际空间与总时长有关。
+
+## 本地数据
+
+均为 Git 忽略目录：
+
+- `.local/library/<文章ID>/article.json`：元数据及完整朗读文本快照。
+- `.local/library/<文章ID>/speech.txt`、`audio.mp3`、`audio.json`：完整朗读文本、成品和校验/转换信息。
+- `.local/previews/<文章ID>/`：独立试听，不会误用作完整文章发布。
+- `.private/publish.json`：SSH 目标和节目地址；`.private/subscribe.txt`：订阅行。
+
+Mac 目前保存每篇文章的最新一次音频。主动改变正文、音色或语速并重新转换，会替换该篇本地成品；正常的服务端淘汰不会删除或替换本地成品。
+
+服务器目录中 `app/` 存放代码，`.staging/` 存放上传暂存，`www/wechat/<随机标识>/` 提供 RSS 和 MP3，`generations/` 保存原子发布所需元数据。无常驻 Python 服务，也不需要公网上传接口。
+
+重新部署保留发布配置，避免改变节目路径。备份时应包含 App 的 Application Support 数据；若使用 CLI，还应包含 `.local/` 和 `.private/`，不要只备份 Git 文件。
+
+## 验证
+
+```sh
+python3 -m unittest discover -s tests -v
+swift test --package-path macos
+```
+
+测试覆盖跨公众号归一、去重、Markdown 正文清理、RSS 元数据、20/21 集替换、重复发布、缺失/损坏音频、并发冲突、切换失败及旧文件清理。机器检查无法替代人工试听或 Cardputer 实机播放验收。
+
+## 上游许可
+
+沿用上游的 **Commons Clause + MIT** 条款，并保留 [LICENSE](LICENSE) 及[来源记录](third_party/UPSTREAM.md)。这不是无限制的 MIT；后续对外销售软件或主要依赖其功能的服务，需要另行评估授权。
