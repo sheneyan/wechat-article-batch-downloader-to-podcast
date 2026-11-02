@@ -10,6 +10,18 @@ from wechat2podcast.library import atomic_json
 
 
 class GuiTests(unittest.TestCase):
+    def test_missing_date_uses_stable_import_time_only_for_rss(self):
+        from wechat2podcast.library import Library
+        article={**self.article,'published_at':'','imported_at':'2026-11-02T20:00:00+08:00'}
+        atomic_json(self.folder/'article.json',article)
+        (self.folder/'audio.mp3').write_bytes(b'mp3')
+        atomic_json(self.folder/'audio.json',dict(content_sha256=article['content_sha256'],preview=False,audio_sha256='c'*64))
+        with patch('wechat2podcast.library.audio_info',return_value=dict(audio_sha256='c'*64,audio_bytes=3,audio_file='c'*64+'.mp3',duration=1)):
+            ep,_=Library(self.library).publishable(article)
+        self.assertEqual(ep['published_at'],article['imported_at'])
+        self.assertEqual(ep['date_source'],'imported')
+        self.assertEqual(json.loads((self.folder/'article.json').read_text())['published_at'],'')
+
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)

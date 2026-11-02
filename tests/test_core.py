@@ -4,7 +4,7 @@ import unittest
 from pathlib import Path
 from xml.etree import ElementTree as ET
 
-from wechat2podcast.core import clean_markdown, scan_archive, select_online, make_rss
+from wechat2podcast.core import clean_markdown, scan_archive, select_online, make_rss, parse_publish_time
 
 
 def episode(n, date=None):
@@ -15,6 +15,34 @@ def episode(n, date=None):
 
 
 class CoreTests(unittest.TestCase):
+    def test_date_formats_and_unavailable_dates(self):
+        self.assertEqual(parse_publish_time(None),'')
+        self.assertEqual(parse_publish_time('日期未提供'),'')
+        self.assertEqual(parse_publish_time('2026-11-02T12:30:00+08:00'),'2026-11-02T12:30:00+08:00')
+        self.assertEqual(parse_publish_time('2026年11月02日 12:30:15'),'2026-11-02T12:30:15+08:00')
+
+    def test_fallback_rss_date_is_explicitly_labelled(self):
+        ep={**episode(1),'date_source':'imported'}
+        xml=ET.fromstring(make_rss([ep],'https://pod.test/wechat/private'))
+        self.assertIn('原文发布日期未知',xml.findtext('channel/item/description'))
+
+    def test_empty_article_date_does_not_abort_archive_scan(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp)/'公众号'
+            (root/'markdown').mkdir(parents=True)
+            (root/'markdown/a.md').write_text('正文。')
+            (root/'style_corpus.jsonl').write_text(json.dumps(dict(title='无日期文章',author='作者',
+                url='https://mp.weixin.qq.com/s/example',publish_time='',markdown_path='markdown/a.md')))
+            result=scan_archive(Path(tmp))
+            self.assertEqual(len(result),1)
+            self.assertEqual(result[0]['published_at'],'')
+            from wechat2podcast.library import Library, atomic_json
+            library=Library(Path(tmp)/'library')
+            imported=library.scan(root)[0]
+            imported['imported_at']='2020-01-01T12:00:00+08:00'
+            atomic_json(library.root/imported['id']/'article.json',imported)
+            self.assertEqual(library.scan(root)[0]['imported_at'],imported['imported_at'])
+
     def test_cleanup_preserves_paragraphs_and_link_text(self):
         self.assertEqual(clean_markdown('# 标题\n\n![图](images/a.png)\n\n**正文**与[链接](https://a.test/x)。\n\n&gt; 引用'),
                          '标题\n\n正文与链接。\n\n引用')

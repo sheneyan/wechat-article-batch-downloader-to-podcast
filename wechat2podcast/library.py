@@ -3,9 +3,10 @@ import json
 import os
 import tempfile
 from pathlib import Path
+from datetime import datetime
 
 from .audio import audio_info, preview_text, render_audio
-from .core import scan_archive
+from .core import scan_archive, CHINA
 
 
 def atomic_json(path, data):
@@ -31,6 +32,9 @@ class Library:
         for article in found:
             folder = self.root/article['id']
             folder.mkdir(parents=True, exist_ok=True)
+            saved=folder/'article.json'
+            previous=json.loads(saved.read_text()) if saved.exists() else {}
+            article['imported_at']=previous.get('imported_at') or datetime.now(CHINA).isoformat(timespec='seconds')
             # Store the exact text with the metadata; existing MP3 remains until a new render succeeds.
             atomic_json(folder/'article.json', article)
         return found
@@ -74,5 +78,11 @@ class Library:
         if actual['audio_sha256'] != metadata['audio_sha256']:
             raise ValueError('本地音频校验失败: '+article['id'])
         public = {k:article[k] for k in ['id', 'title', 'account', 'author', 'source_url', 'published_at']}
+        public['date_source']='published'
+        if not public['published_at']:
+            if not article.get('imported_at'):
+                raise ValueError('请重新扫描归档，以记录缺失日期文章的首次导入时间')
+            public['published_at']=article['imported_at']
+            public['date_source']='imported'
         public.update(actual)
         return public, folder/'audio.mp3'

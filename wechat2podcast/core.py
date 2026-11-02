@@ -47,6 +47,22 @@ def article_id(url):
     return hashlib.sha256(key.encode()).hexdigest()[:20]
 
 
+def parse_publish_time(value):
+    value=str(value or '').strip()
+    if not value:
+        return ''
+    for fmt in ('%Y年%m月%d日 %H:%M','%Y年%m月%d日 %H:%M:%S'):
+        try:
+            return datetime.strptime(value,fmt).replace(tzinfo=CHINA).isoformat()
+        except ValueError:
+            pass
+    try:
+        parsed=datetime.fromisoformat(value.replace('Z','+00:00'))
+        return (parsed.replace(tzinfo=CHINA) if parsed.tzinfo is None else parsed.astimezone(CHINA)).isoformat()
+    except ValueError:
+        return ''
+
+
 def scan_archive(root):
     root = Path(root).expanduser().resolve()
     articles = {}
@@ -63,7 +79,7 @@ def scan_archive(root):
                 aid = article_id(url)
                 if aid in articles:
                     continue
-                published = datetime.strptime(row['publish_time'], '%Y年%m月%d日 %H:%M').replace(tzinfo=CHINA)
+                published = parse_publish_time(row.get('publish_time'))
                 source = (manifest.parent / row['markdown_path']).resolve()
                 if not source.is_relative_to(manifest.parent.resolve()):
                     raise ValueError('文章路径超出归档目录')
@@ -77,7 +93,7 @@ def scan_archive(root):
                 speech = intro + '\n\n' + body
                 articles[aid] = dict(id=aid, title=row['title'], account=account,
                                      author=row.get('author', ''), source_url=url,
-                                     published_at=published.isoformat(), source_path=str(source),
+                                     published_at=published, raw_publish_time=row.get('publish_time') or '', source_path=str(source),
                                      speech=speech,
                                      content_sha256=hashlib.sha256(speech.encode()).hexdigest())
             except (KeyError, ValueError, OSError) as exc:
@@ -117,8 +133,9 @@ def make_rss(episodes, base_url):
         ET.SubElement(item, 'guid', isPermaLink='false').text = 'wechat-' + ep['id']
         ET.SubElement(item, 'link').text = ep['source_url']
         ET.SubElement(item, 'pubDate').text = format_datetime(datetime.fromisoformat(ep['published_at']))
+        date_note='\n原文发布日期未知；节目日期使用首次导入时间。' if ep.get('date_source')=='imported' else ''
         ET.SubElement(item, 'description').text = (
-            f"来源：{ep['account']}\n作者：{ep['author']}\n原文：{ep['source_url']}\nmacOS TTS 朗读")
+            f"来源：{ep['account']}\n作者：{ep['author']}\n原文：{ep['source_url']}\nmacOS TTS 朗读"+date_note)
         ET.SubElement(item, f'{{{ITUNES}}}author').text = ep['author'] or ep['account']
         ET.SubElement(item, f'{{{ITUNES}}}duration').text = str(round(ep['duration']))
         ET.SubElement(item, 'enclosure', url=base_url+'/audio/'+ep['audio_file'],

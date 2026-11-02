@@ -13,6 +13,7 @@ final class PodcastModelsTests: XCTestCase {
  func testReadyRequiresAudioPath() throws {
   let article = try JSONDecoder().decode(PodcastArticle.self,from:Data(#"{"id":"a","title":"A","account":"B","source_path":"/tmp/a","local_state":"ready"}"#.utf8))
   XCTAssertFalse(article.canPlay)
+  XCTAssertEqual(article.displayDate,"日期未知")
  }
  func testPreviewPreservesServerRevisionAndEvictionList() throws {
   let json = #"{"revision":"rev-1","incoming":[{"id":"new","title":"New","audio_bytes":100}],"removed":[{"id":"old","title":"Old","audio_bytes":200}],"online":[{"id":"new","title":"New","audio_bytes":100}],"total_bytes":100}"#

@@ -17,7 +17,7 @@ struct PodcastArticle: Decodable, Identifiable {
  let duration: Double?
  let audio_bytes: Int64?
  let audio_sha256: String?
- var displayDate: String {published_at.map{String($0.prefix(10))} ?? "—"}
+ var displayDate: String {guard let published_at,!published_at.isEmpty else{return "日期未知"};return String(published_at.prefix(10))}
  func serverStatus(episodes: [PodcastEpisode]?, refreshFailed: Bool) -> String {
   guard !refreshFailed else{return "待刷新"}
   guard let episodes else{return "未查询"}
