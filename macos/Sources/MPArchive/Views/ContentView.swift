@@ -9,9 +9,9 @@ struct ContentView: View {
   NavigationSplitView {
    List(selection: $library.selected) {
     Section {
+     Label("公众号下载",systemImage:"books.vertical").tag("welcome")
      Label("音频库",systemImage:"waveform").tag("podcast")
      Label("在线播客",systemImage:"antenna.radiowaves.left.and.right").tag("online")
-     Label("开始归档",systemImage:"books.vertical").tag("welcome")
      Label("下载中心",systemImage:"arrow.down.circle").tag("downloads")
     }
     Section("公众号 · \(library.accounts.count)") {
@@ -79,7 +79,7 @@ struct WelcomeView: View {
     if !library.accounts.isEmpty {Button("查看已识别公众号"){library.selected = library.accounts.first?.biz}.buttonStyle(.bordered)}
     Spacer(minLength:20)
    }.padding(36).frame(maxWidth:950,alignment:.leading)
-  }.navigationTitle("开始归档")
+  }.navigationTitle("公众号下载")
  }
  func step<Content:View>(_ n:String,title:String,detail:String,@ViewBuilder action:()->Content)->some View {
   HStack(alignment:.top,spacing:16){Text(n).font(.title3.weight(.semibold)).foregroundStyle(.tint).frame(width:36,height:36).background(.tint.opacity(0.08),in:Circle());VStack(alignment:.leading,spacing:8){Text(title).font(.headline);Text(detail).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true);action().padding(.top,3)}}
