@@ -20,6 +20,8 @@ def main():
             raise ValueError('nginx 模板不支持含 $ 或反斜线的存储目录')
         snippet='''# Include in the intended existing HTTPS server block.
 location ^~ /wechat/ {
+    charset utf-8;
+    charset_types application/rss+xml;
     root ROOT_PLACEHOLDER;
     autoindex off;
     open_file_cache off;
