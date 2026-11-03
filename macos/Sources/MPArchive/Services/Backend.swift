@@ -18,8 +18,8 @@ import Foundation
  var certificateKey: URL {certificateDirectory.appendingPathComponent("root-ca-key.pem")}
  init() {
   let fm = FileManager.default
-  dataDirectory = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("MPArticleDownloader")
-  downloads = URL(fileURLWithPath: UserDefaults.standard.string(forKey: "downloadDirectory") ?? fm.homeDirectoryForCurrentUser.appendingPathComponent("Downloads/公众号文章归档").path)
+  dataDirectory = fm.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0].appendingPathComponent("Wechat2Podcast/Downloader")
+  downloads = URL(fileURLWithPath: UserDefaults.standard.string(forKey: "downloadDirectory") ?? fm.homeDirectoryForCurrentUser.appendingPathComponent("Documents/wechat_archived").path)
   binary = Bundle.main.bundleURL.appendingPathComponent("Contents/Resources/mp_article_batch_downloader")
  }
  static func run(_ binary: String, _ args: [String], environment: [String:String]? = nil) async throws -> (Int32, String) {
@@ -46,7 +46,7 @@ import Foundation
    await stopProcess()
    if process?.isRunning == true {throw APIError(code:0,message:"后台仍在收尾，请稍后重试")}
    // JSON is a YAML subset; encoding paths this way avoids escaping and injection problems.
-   let configuration: [String:Any] = ["api":["hostname":"127.0.0.1","port":2132,"protocol":"http"],"proxy":["system":connect,"hostname":"127.0.0.1","port":2133,"skipInstallRootCert":true],"download":["dir":downloads.path,"playDoneAudio":false],"mp":["disabled":false,"refreshToken":"mp-archive-local"],"cert":["name":"MP Article Batch Downloader Local CA","file":certificate.path,"key":certificateKey.path]]
+   let configuration: [String:Any] = ["api":["hostname":"127.0.0.1","port":2142,"protocol":"http"],"proxy":["system":connect,"hostname":"127.0.0.1","port":2143,"skipInstallRootCert":true],"download":["dir":downloads.path,"playDoneAudio":false],"mp":["disabled":false,"refreshToken":"mp-archive-local"],"cert":["name":"MP Article Batch Downloader Local CA","file":certificate.path,"key":certificateKey.path]]
    try JSONSerialization.data(withJSONObject: configuration, options: [.prettyPrinted,.sortedKeys,.withoutEscapingSlashes]).write(to: config, options: .atomic)
    try await restoreNetworkIfNeeded()
    let log = dataDirectory.appendingPathComponent("service.log")

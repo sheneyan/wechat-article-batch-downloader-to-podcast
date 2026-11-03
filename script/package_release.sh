@@ -2,12 +2,12 @@
 set -euo pipefail
 
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SOURCE_APP="${PACKAGE_SOURCE_APP:-$PROJECT_DIR/dist/公众号文章下载器.app}"
-ASSET="${PACKAGE_ASSET:-$PROJECT_DIR/release/MPArticleDownloader-macOS-arm64.zip}"
+SOURCE_APP="${PACKAGE_SOURCE_APP:-$PROJECT_DIR/dist/微信文章播客.app}"
+ASSET="${PACKAGE_ASSET:-$PROJECT_DIR/release/Wechat2Podcast-macOS-arm64.zip}"
 OUTPUT_DIR="$(dirname "$ASSET")"
 
 if [[ ! -d "$SOURCE_APP" ]]; then
-  echo "未找到应用包，请先运行 ./script/build_and_run.sh --build-only" >&2
+  echo "未找到应用包，请先运行 ./script/build_app.sh --build-only" >&2
   exit 1
 fi
 
@@ -20,7 +20,7 @@ PY
 }
 trap cleanup EXIT
 
-APP="$STAGE/公众号文章下载器.app"
+APP="$STAGE/微信文章播客.app"
 ditto "$SOURCE_APP" "$APP"
 
 # 公共下载包使用可移植的 ad-hoc 签名，不携带开发者个人证书。
@@ -46,9 +46,9 @@ ditto -c -k --sequesterRsrc --keepParent "$APP" "$ASSET"
 VERIFY="$STAGE/verify"
 mkdir -p "$VERIFY"
 ditto -x -k "$ASSET" "$VERIFY"
-codesign --verify --deep --strict "$VERIFY/公众号文章下载器.app"
+codesign --verify --deep --strict "$VERIFY/微信文章播客.app"
 python3 "$PROJECT_DIR/script/verify_certificate_precedence.py" \
-  "$VERIFY/公众号文章下载器.app/Contents/Resources/mp_article_batch_downloader"
+  "$VERIFY/微信文章播客.app/Contents/Resources/mp_article_batch_downloader"
 
 ls -lh "$ASSET" "$ASSET.sha256"
 cat "$ASSET.sha256"

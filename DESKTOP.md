@@ -1,3 +1,5 @@
+> 本 fork 已合并为「微信文章播客」。请先阅读 [新版构建、配置与使用说明](README.md)。下文保留上游下载功能说明，其中旧安装名和端口不适用于本 fork（本版为 2142/2143）。
+
 # 公众号文章下载器 · macOS 应用
 
 [下载最新版 macOS 应用（Apple Silicon）](https://github.com/dingaiminGIT/wechat-article-batch-downloader/releases/latest/download/MPArticleDownloader-macOS-arm64.zip)
