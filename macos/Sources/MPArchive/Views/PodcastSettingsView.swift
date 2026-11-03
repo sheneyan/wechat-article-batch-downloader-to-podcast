@@ -13,7 +13,14 @@ struct PodcastSettingsView: View {
     TextField("系统语音",text:$store.voice)
     Stepper("语速：\(store.rate)",value:$store.rate,in:80...400,step:10)
    }
+   Section("口播稿收件") {
+    TextField("收件 URL",text:$store.inboxSettings.base_url)
+    SecureField("读取密钥",text:$store.inboxSettings.read_token)
+    Text("仅需读取密钥。点击“拉取口播稿”才会下载；测试稿默认隐藏，拉取后仍需手动生成音频与确认发布。").font(.caption).foregroundStyle(.secondary)
+    HStack {Button("保存收件配置"){Task{await store.saveInboxSettings()}};Button("测试已保存的收件配置"){Task{await store.testInbox()}}}.disabled(store.busy)
+   }
    Section("服务器 · 手动发布") {
+    TextField("节目名称",text:$store.settings.feed_title)
     TextField("HTTPS 播客根地址（含访问路径）",text:$store.settings.base_url)
     TextField("SSH 主机或 ~/.ssh/config 别名",text:$store.settings.ssh_host)
     TextField("SSH 用户（可留空使用 SSH 配置）",text:$store.settings.ssh_user)
@@ -25,7 +32,7 @@ struct PodcastSettingsView: View {
     HStack {Button("保存配置"){Task{await store.saveSettings()}};Button("测试已保存的 SSH"){Task{await store.connection()}};Button("部署 / 更新发布组件"){Task{await store.connection(deploy:true)}}}.disabled(store.busy)
    }
    PodcastActivityView(store:store)
-  }.formStyle(.grouped).padding(12).task{if !store.configLoaded {await store.loadSettings()}}
+  }.formStyle(.grouped).padding(12).task{if !store.configLoaded {await store.loadSettings()};if !store.inboxConfigLoaded {await store.loadInboxSettings()}}
  }
  private func chooseDirectory() {let p = NSOpenPanel();p.canChooseDirectories = true;p.canChooseFiles = false;p.canCreateDirectories = true;if p.runModal() == .OK,let url = p.url {store.archive = url.path}}
 }

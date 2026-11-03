@@ -11,6 +11,11 @@ from wechat2podcast.remote import Publisher
 
 
 class RemoteTests(unittest.TestCase):
+    def test_grok_episode_can_omit_original_link_but_test_scripts_cannot_publish(self):
+        ep={**episode(1),'source_kind':'grok','source_url':''}
+        Publisher._validate(ep)
+        with self.assertRaisesRegex(ValueError,'测试稿'):
+            Publisher._validate({**ep,'is_test':True})
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)

@@ -24,6 +24,11 @@ def main():
     if profile.exists() and not dest_profile.exists():
         shutil.copy2(profile,dest_profile)
         dest_profile.chmod(0o600)
+    inbox_profile=ROOT/'.private/inbox-reader.json'
+    dest_inbox=DEST/'inbox-reader.json'
+    if inbox_profile.exists() and not dest_inbox.exists():
+        shutil.copy2(inbox_profile,dest_inbox)
+        dest_inbox.chmod(0o600)
     print(json.dumps({'copied_articles':copied,'destination':str(DEST)},ensure_ascii=False))
 
 

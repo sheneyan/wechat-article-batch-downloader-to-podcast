@@ -10,6 +10,9 @@ from .client import Client
 from .library import Library
 from .settings import load_config, save_config
 from .dependencies import check_dependencies
+from . import inbox_settings
+from .inbox_client import fetch, request as inbox_request
+from .script_library import import_scripts
 
 
 def dashboard(root):
@@ -26,6 +29,7 @@ def dashboard(root):
                      info.get('audio_bytes') == path.stat().st_size and not info.get('preview', True))
             state = 'ready' if ready else 'stale'
         public = {k:article[k] for k in ('id','title','account','author','published_at','source_url','source_path')}
+        public.update(source_kind=article.get('source_kind','wechat'),source_id=article.get('source_id',''),is_test=article.get('is_test',False))
         public.update(local_state=state, audio_path=str(path.resolve()) if path.exists() else None,
                       **{k:info.get(k) for k in ('duration','audio_bytes','audio_sha256')})
         articles.append(public)
@@ -37,6 +41,22 @@ def handle(req):
     root = Path(req['library']).expanduser()
     config = Path(req['config']).expanduser()
     library = Library(root)
+    inbox_profile=root.parent/'inbox-reader.json'
+    if action=='inbox_config':
+        return inbox_settings.load(inbox_profile)
+    if action=='save_inbox_config':
+        return inbox_settings.save(inbox_profile,req['settings'])
+    if action=='test_inbox':
+        inbox_request(inbox_settings.required(inbox_profile),'/v1/scripts?after=0&limit=1')
+        return dict(message='口播稿收件服务连接成功，可读取稿件目录。')
+    if action=='pull_scripts':
+        downloaded=fetch(inbox_settings.required(inbox_profile),root.parent/'inbox/raw')
+        imported=import_scripts(library,downloaded['output'])
+        return {**dashboard(root),**imported,'downloaded':downloaded['downloaded']}
+    if action=='article_detail':
+        article=library.find(req['id'])
+        return dict(id=article['id'],title=article['title'],text=article['speech'],notes=article.get('notes',''),
+                    source_kind=article.get('source_kind','wechat'),is_test=article.get('is_test',False))
     if action == 'dependencies':
         return check_dependencies(req.get('voice','Tingting'))
     if action == 'dashboard':

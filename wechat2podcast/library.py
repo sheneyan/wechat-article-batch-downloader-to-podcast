@@ -50,6 +50,8 @@ class Library:
         return matches[0]
 
     def render(self, article, voice='Tingting', rate=180, preview=False, characters=260):
+        if article.get('is_test'):
+            raise ValueError('测试稿不参与语音转换或发布')
         folder = self.root/article['id']
         if preview:
             folder = self.root.parent/'previews'/article['id']
@@ -70,6 +72,8 @@ class Library:
         return path, metadata, False
 
     def publishable(self, article):
+        if article.get('is_test'):
+            raise ValueError('测试稿不参与语音转换或发布')
         folder = self.root/article['id']
         metadata = json.loads((folder/'audio.json').read_text())
         if metadata.get('preview') or metadata['content_sha256'] != article['content_sha256']:
@@ -78,6 +82,7 @@ class Library:
         if actual['audio_sha256'] != metadata['audio_sha256']:
             raise ValueError('本地音频校验失败: '+article['id'])
         public = {k:article[k] for k in ['id', 'title', 'account', 'author', 'source_url', 'published_at']}
+        public['source_kind']=article.get('source_kind','wechat')
         public['date_source']='published'
         if not public['published_at']:
             if not article.get('imported_at'):

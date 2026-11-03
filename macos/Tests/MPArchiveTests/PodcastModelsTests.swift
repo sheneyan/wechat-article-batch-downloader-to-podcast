@@ -63,4 +63,32 @@ final class PodcastModelsTests: XCTestCase {
   XCTAssertEqual(store.publicationWarnings,["旧音频清理未完成","目录持久化未确认"])
  }
 
+ func testLegacyArticlesDefaultToWechatAndInboxSourceFiltering() throws {
+  let legacy = try JSONDecoder().decode(PodcastArticle.self,from:Data(#"{"id":"wechat-a","title":"文章","account":"公众号A","source_path":"/tmp/a","local_state":"missing"}"#.utf8))
+  let grok = try JSONDecoder().decode(PodcastArticle.self,from:Data(#"{"id":"grok-a","title":"口播稿","account":"每日 X","source_kind":"grok","source_id":"daily-a","source_path":"/tmp/b","local_state":"missing"}"#.utf8))
+  XCTAssertEqual(legacy.sourceKind,"wechat");XCTAssertFalse(legacy.isTest)
+  XCTAssertEqual(legacy.sourceLabel,"公众号A");XCTAssertEqual(grok.sourceLabel,"每日X")
+  XCTAssertTrue(legacy.isVisible(source:.wechat,showTests:false,query:""))
+  XCTAssertFalse(grok.isVisible(source:.wechat,showTests:false,query:""))
+  XCTAssertTrue(grok.isVisible(source:.grok,showTests:false,query:"口播"))
+ }
+ @MainActor func testTestScriptsStayHiddenAndCannotEnterAudioOperations() throws {
+  let formal = try JSONDecoder().decode(PodcastArticle.self,from:Data(#"{"id":"formal","title":"正式稿","account":"每日 X","source_kind":"grok","source_path":"/tmp/f","local_state":"ready","audio_path":"/tmp/f.mp3"}"#.utf8))
+  let test = try JSONDecoder().decode(PodcastArticle.self,from:Data(#"{"id":"test","title":"测试稿","account":"每日 X","source_kind":"grok","is_test":true,"source_path":"/tmp/t","local_state":"ready","audio_path":"/tmp/t.mp3"}"#.utf8))
+  let store = PodcastStore();store.articles = [formal,test];store.selected = ["test"]
+  XCTAssertEqual(store.visible.map(\.id),["formal"])
+  XCTAssertTrue(store.selectedArticles.isEmpty);XCTAssertFalse(store.canRenderSelection);XCTAssertFalse(store.canPublishSelection)
+  store.showTests = true;store.selected = ["test"]
+  XCTAssertEqual(store.selectedArticles.map(\.id),["test"])
+  XCTAssertFalse(test.canPlay);XCTAssertFalse(store.canRenderSelection);XCTAssertFalse(store.canPublishSelection)
+  store.selected = ["formal"];XCTAssertTrue(store.canRenderSelection);XCTAssertTrue(store.canPublishSelection)
+  store.sourceFilter = .wechat;XCTAssertTrue(store.selected.isEmpty);XCTAssertTrue(store.visible.isEmpty)
+  store.sourceFilter = .grok;store.selected = ["formal"];store.query = "不存在";XCTAssertTrue(store.selected.isEmpty)
+ }
+ func testArticleDetailPreservesSpokenTextAndSeparateNotes() throws {
+  let detail = try JSONDecoder().decode(PodcastArticleDetail.self,from:Data(#"{"id":"grok-a","title":"每日稿","text":"第一段。\n\n第二段。  ","notes":"核验备注，不朗读","source_kind":"grok","is_test":true}"#.utf8))
+  XCTAssertEqual(detail.text,"第一段。\n\n第二段。  ")
+  XCTAssertEqual(detail.notes,"核验备注，不朗读");XCTAssertEqual(detail.source_kind,"grok");XCTAssertEqual(detail.is_test,true)
+ }
+
 }

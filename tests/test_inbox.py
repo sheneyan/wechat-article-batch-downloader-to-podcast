@@ -78,13 +78,16 @@ class InboxTests(unittest.TestCase):
         self.assertEqual(ctx.exception.code,415)
 
     def test_mac_fetch_keeps_notes_separate_and_retries_without_duplicates(self):
-        from wechat2podcast.inbox_client import fetch
+        from wechat2podcast.inbox_client import fetch,document_stem
         self.call('/v1/scripts','writer-secret',self.doc)
         output=Path(self.tmp.name)/'mac-inbox'
         config=dict(base_url=self.base,read_token='reader-secret')
-        self.assertEqual(fetch(config,output)['downloaded'],1)
-        self.assertEqual((output/(self.doc['id']+'.txt')).read_text().strip(),self.doc['text'])
-        self.assertEqual((output/(self.doc['id']+'.notes.txt')).read_text().strip(),self.doc['notes'])
+        result=fetch(config,output)
+        self.assertEqual(result['downloaded'],1)
+        files=Path(result['output'])/'documents'
+        name=document_stem(self.doc['id'])
+        self.assertEqual((files/(name+'.txt')).read_text().strip(),self.doc['text'])
+        self.assertEqual((files/(name+'.notes.txt')).read_text().strip(),self.doc['notes'])
         self.assertEqual(fetch(config,output)['downloaded'],0)
 
     def test_receipt_is_available_to_writer_without_disclosing_text(self):
@@ -93,6 +96,26 @@ class InboxTests(unittest.TestCase):
         self.assertEqual(code,200)
         self.assertEqual(receipt['id'],self.doc['id'])
         self.assertNotIn('text',receipt)
+
+    def test_gui_pull_imports_script_and_keeps_notes_out_of_detail_text(self):
+        from wechat2podcast.gui import handle
+        self.call('/v1/scripts','writer-secret',self.doc)
+        app=Path(self.tmp.name)/'app'
+        app.mkdir()
+        (app/'inbox-reader.json').write_text(json.dumps(dict(base_url=self.base,read_token='reader-secret')))
+        req=dict(action='pull_scripts',library=str(app/'library'),config=str(app/'publish.json'))
+        result=handle(req)
+        self.assertEqual(result['downloaded'],1)
+        self.assertEqual(result['imported'],1)
+        self.assertEqual(result['test_count'],0)
+        article=result['articles'][0]
+        self.assertEqual(article['source_kind'],'grok')
+        detail=handle({**req,'action':'article_detail','id':article['id']})
+        self.assertEqual(detail['text'],self.doc['text'])
+        self.assertEqual(detail['notes'],self.doc['notes'])
+        repeated=handle(req)
+        self.assertEqual(repeated['downloaded'],0)
+        self.assertEqual(repeated['imported'],0)
 
 
 if __name__=='__main__':

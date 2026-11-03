@@ -19,7 +19,8 @@ def load_config(path):
     return {**cfg, 'ssh_host':host, 'ssh_user':user, 'ssh_port':cfg.get('ssh_port', 22),
             'identity_file':cfg.get('identity_file',''), 'remote_root':root,
             'remote_code':root+'/app', 'remote_config':root+'/config.json',
-            'base_url':cfg.get('base_url',''), 'token':cfg.get('token',''), 'auto_publish':False}
+            'base_url':cfg.get('base_url',''), 'token':cfg.get('token',''),
+            'feed_title':cfg.get('feed_title','微信文章'),'auto_publish':False}
 
 
 def save_config(path, settings):
@@ -56,11 +57,14 @@ def save_config(path, settings):
         raise ValueError('节目路径请使用 /wechat/节目标识，或仅填写服务器 HTTPS 域名')
     token = match[1]
     identity = str(settings.get('identity_file','')).strip()
+    title=str(settings.get('feed_title',old.get('feed_title','微信文章'))).strip()
+    if not title or len(title)>100:
+        raise ValueError('节目名称应为 1–100 个字符')
     if identity:
         identity = str(Path(identity).expanduser().resolve())
     config = dict(ssh_host=host, ssh_user=user, ssh_port=port, identity_file=identity,
                   remote_root=root, remote_code=root+'/app', remote_config=root+'/config.json',
-                  base_url=urlunsplit((url.scheme,url.netloc,suffix,'','')), token=token, auto_publish=False)
+                  base_url=urlunsplit((url.scheme,url.netloc,suffix,'','')), token=token,feed_title=title,auto_publish=False)
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     atomic_json(path,config)

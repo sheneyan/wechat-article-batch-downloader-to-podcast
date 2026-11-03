@@ -53,7 +53,9 @@ Content-Type: application/json; charset=utf-8
 python3 -m wechat2podcast.inbox_client --config /private/inbox-reader.json
 ```
 
-默认保存到 `.local/grok-inbox/`：JSON 保留完整字段，`.txt` 仅包含朗读正文，`.notes.txt` 仅包含备注。验证 SHA256 后再推进本地游标；重复拉取不重复创建条目。`--from-start` 可重新拉取。此工具暂不接入 App 音频列表，也不自动转换/发布。
+默认保存到 `.local/grok-inbox/sources/<连接标识>/documents/`，文件名使用稿件 ID 的哈希，避免 `state` 等编号和大小写造成文件碰撞。JSON 保留完整字段，`.txt` 仅包含朗读正文，`.notes.txt` 仅包含备注。游标按服务地址和读取身份分别保存；验证 SHA256 后再推进。`--from-start` 可重新拉取。
+
+Mac App 已提供“拉取口播稿”，可导入音频库、分别查看正文与备注，再手动转换和发布。测试稿默认隐藏且不允许转换/发布；同一 ID 的不同校验和会报冲突并保留原有本地内容，发送方需使用新的修订编号。只拉取不会自动产生或上线音频。
 
 ## 错误和运行边界
 

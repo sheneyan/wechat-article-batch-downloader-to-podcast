@@ -71,10 +71,10 @@ class Client:
         sources = [str(p) for p in Path(__file__).parent.glob('*.py')]
         subprocess.run(['scp','-q',*self.ssh_options(scp=True),*sources,self.host+':'+code+'/wechat2podcast/'],
                        check=True,timeout=180)
-        remote = {k:self.config[k] for k in ('base_url','token')}
+        remote = {k:self.config[k] for k in ('base_url','token','feed_title')}
         remote['root'] = root
         write = ('import json,sys; from wechat2podcast.remote import configure; '
                  'configure('+repr(self.config['remote_config'])+',json.load(sys.stdin))')
         self.ssh('cd '+shlex.quote(code)+' && python3 -c '+shlex.quote(write),remote)
-        self.remote('status')
+        self.remote('refresh')
         return {'message':'发布组件已部署/更新。HTTPS 站点需将 /wechat/ 映射到 '+root+'/www；域名、证书和 nginx 不由此按钮修改。'}

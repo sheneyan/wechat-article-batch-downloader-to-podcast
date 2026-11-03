@@ -5,7 +5,12 @@ import Foundation
 @MainActor final class PodcastStore: NSObject, ObservableObject, AVAudioPlayerDelegate {
  @Published var articles: [PodcastArticle] = []
  @Published var selected = Set<String>()
- @Published var query = ""
+ @Published var query = "" {didSet{selected = []}}
+ @Published var sourceFilter: PodcastSourceFilter = .all {didSet{selected = []}}
+ @Published var showTests = false {didSet{selected = []}}
+ @Published var detail: PodcastArticleDetail?
+ @Published var inboxSettings = InboxSettings()
+ @Published var inboxConfigLoaded = false
  @Published var online: PodcastOnline?
  @Published var onlineUpdated: Date?
  @Published var onlineError = ""
@@ -27,8 +32,10 @@ import Foundation
  private let bridge = PodcastBridge()
  private var cancelled = false
  private var initialized = false
- var visible: [PodcastArticle] {articles.filter{$0.matches(query)}}
- var selectedArticles: [PodcastArticle] {articles.filter{selected.contains($0.id)}}
+ var visible: [PodcastArticle] {articles.filter{$0.isVisible(source:sourceFilter,showTests:showTests,query:query)}}
+ var selectedArticles: [PodcastArticle] {visible.filter{selected.contains($0.id)}}
+ var canRenderSelection: Bool {!selectedArticles.isEmpty && selectedArticles.allSatisfy{!$0.isTest}}
+ var canPublishSelection: Bool {canRenderSelection && selectedArticles.allSatisfy(\.canPlay)}
  var onlineIDs: Set<String> {Set(online?.episodes.map(\.id) ?? [])}
  func request<T: Decodable>(_ action: String,_ fields: [String:Any] = [:]) async throws -> T {try await bridge.request(action,python:python,fields:fields)}
  func work(_ message: String, operation: () async throws -> Void) async {
@@ -36,10 +43,17 @@ import Foundation
   defer {busy = false}
   do {try await operation();if cancelled {progress = "任务已停止"}} catch {self.error = error.localizedDescription;progress = "操作未完成"}
  }
- func initialize() async {guard !initialized else{return};initialized = true;await scan(indexOnly:true);await loadSettings()}
+ func initialize() async {guard !initialized else{return};initialized = true;await scan(indexOnly:true);await loadSettings();await loadInboxSettings()}
  func scan(indexOnly: Bool = false) async {
   await work("正在扫描本地文章") {let result: PodcastDashboard = try await request(indexOnly ? "dashboard" : "scan",["archive":(archive as NSString).expandingTildeInPath]);articles = result.articles;progress = "已载入 \(articles.count) 篇文章"}
  }
+ func pullScripts() async {
+  await work("正在拉取口播稿") {let result: PodcastPullResult = try await request("pull_scripts");articles = result.articles;selected = [];progress = "已下载 \(result.downloaded) 份 · 导入 \(result.imported) 篇 · 测试稿 \(result.test_count) 篇（默认隐藏）"}
+ }
+ func loadInboxSettings() async {await work("正在读取口播稿收件配置") {inboxSettings = try await request("inbox_config");inboxConfigLoaded = true;progress = "口播稿收件配置已读取；点击拉取时才连接服务器"}}
+ func saveInboxSettings() async {await work("正在保存口播稿收件配置") {let data = try JSONEncoder().encode(inboxSettings);let fields = try JSONSerialization.jsonObject(with:data);inboxSettings = try await request("save_inbox_config",["settings":fields]);inboxConfigLoaded = true;progress = "口播稿收件配置已保存"}}
+ func testInbox() async {await work("正在测试口播稿收件连接") {let result: PodcastMessage = try await request("test_inbox");progress = result.message}}
+ func showDetail() async {guard selectedArticles.count == 1,let article = selectedArticles.first else{return};await work("正在读取稿件") {detail = try await request("article_detail",["id":article.id]);progress = "稿件已读取"}}
  func loadSettings() async {await work("正在读取发布配置") {settings = try await request("config");configLoaded = true;progress = "发布采用手动操作"}}
  func saveSettings() async {await work("正在保存配置") {let data = try JSONEncoder().encode(settings);let fields = try JSONSerialization.jsonObject(with:data);settings = try await request("save_config",["settings":fields]);configLoaded = true;invalidateOnline();progress = "配置已保存；请重新刷新在线列表"}}
  func invalidateOnline() {online = nil;onlineUpdated = nil;onlineSelection = [];plan = nil;onlineError = ""}
@@ -49,6 +63,7 @@ import Foundation
   await work("正在读取服务器节目列表") {do {let result: PodcastOnline = try await request("online");online = result;onlineSelection.formIntersection(Set(result.episodes.map(\.id)));onlineUpdated = Date();onlineError = "";progress = "在线列表已刷新"} catch {onlineError = error.localizedDescription;throw error}}
  }
  func render(preview: Bool = false) async {
+  guard canRenderSelection else{error = "请选择非测试稿件；测试稿不能试听或生成音频";return}
   let items = selectedArticles
   await work(preview ? "正在生成试听" : "正在生成音频") {
    for (index,item) in items.enumerated() {
@@ -61,13 +76,14 @@ import Foundation
   }
  }
  func play(path: String,title: String) throws {player?.stop();player = try AVAudioPlayer(contentsOf:URL(fileURLWithPath:path));player?.delegate = self;playing = player?.play() ?? false;playingTitle = title}
- func playSelected() {guard let item = selectedArticles.first,let path = item.audio_path else{return};do{try play(path:path,title:item.title)}catch{self.error = error.localizedDescription}}
+ func playSelected() {guard let item = selectedArticles.first,item.canPlay,let path = item.audio_path else{return};do{try play(path:path,title:item.title)}catch{self.error = error.localizedDescription}}
  nonisolated func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {Task { @MainActor [weak self] in self?.playing = false }}
  func togglePlayback() {if playing {player?.pause();playing = false}else{playing = player?.play() ?? false}}
  func stopPlayback() {player?.stop();player = nil;playing = false;playingTitle = ""}
  func cancel() {cancelled = true;bridge.cancel()}
  func reveal() {NSWorkspace.shared.activateFileViewerSelecting(selectedArticles.map{URL(fileURLWithPath:$0.audio_path ?? $0.source_path)})}
  func preparePublish() async {
+  guard canPublishSelection else{error = "请选择已生成音频的非测试稿件";return}
   let ids = selectedArticles.map(\.id)
   await work("正在预览发布变化") {var result: PodcastPlan = try await request("plan",["ids":ids]);result.selectedIDs = ids;plan = result;progress = "请检查新节目及淘汰列表，再确认发布"}
  }

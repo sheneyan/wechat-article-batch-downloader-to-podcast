@@ -27,11 +27,18 @@ def sha256_file(path):
 
 
 class Publisher:
-    def __init__(self, root, base_url, token):
+    def __init__(self, root, base_url, token, feed_title='微信文章'):
         if not re.fullmatch(r'[a-zA-Z0-9_-]+', token):
             raise ValueError('无效节目路径')
         self.root = Path(root)
         self.base_url = base_url.rstrip('/')
+        if not isinstance(feed_title,str) or not feed_title.strip() or len(feed_title)>100:
+            raise ValueError('节目名称应为 1–100 个字符')
+        try:
+            ET.fromstring(make_rss([],self.base_url,title=feed_title))
+        except ET.ParseError as exc:
+            raise ValueError('节目名称含无效字符') from exc
+        self.feed_title=feed_title
         self.public = self.root/'www'/'wechat'/token
         self.root.mkdir(parents=True, exist_ok=True)
         self._check_identity()
@@ -72,6 +79,8 @@ class Publisher:
 
     @staticmethod
     def _validate(ep):
+        if ep.get('is_test'):
+            raise ValueError('测试稿不参与语音转换或发布')
         if not re.fullmatch(r'[a-f0-9]{20}', ep['id']):
             raise ValueError('无效文章 ID')
         if not re.fullmatch(r'[a-f0-9]{64}\.mp3', ep['audio_file']):
@@ -85,8 +94,13 @@ class Publisher:
         if datetime.fromisoformat(ep['published_at']).utcoffset() is None:
             raise ValueError('发布日期必须含时区')
         url = urlsplit(ep['source_url'])
-        if url.scheme != 'https' or url.hostname != 'mp.weixin.qq.com':
+        kind=ep.get('source_kind','wechat')
+        if kind not in ('wechat','grok'):
+            raise ValueError('无效内容来源')
+        if kind=='wechat' and (url.scheme != 'https' or url.hostname != 'mp.weixin.qq.com'):
             raise ValueError('无效原文地址')
+        if kind=='grok' and ep['source_url'] and (url.scheme not in ('http','https') or not url.hostname or url.username or url.password):
+            raise ValueError('无效口播来源地址')
         for field in ('title', 'account', 'author'):
             if not isinstance(ep[field], str):
                 raise ValueError('无效元数据')
@@ -146,7 +160,7 @@ class Publisher:
                             os.fsync(stream.fileno())
                 generation.mkdir(parents=True)
                 state = json.dumps(online, ensure_ascii=False, sort_keys=True, indent=2).encode()
-                for name, data in [('state.json', state), ('feed.xml', make_rss(online, self.base_url))]:
+                for name, data in [('state.json', state), ('feed.xml', make_rss(online, self.base_url,title=self.feed_title))]:
                     with (generation/name).open('wb') as stream:
                         stream.write(data)
                         stream.flush()
@@ -193,11 +207,11 @@ class Publisher:
 
 def configure(path, config):
     """Do not overwrite a live directory's identity when deploying a new profile."""
-    pub = Publisher(config['root'],config['base_url'],config['token'])
+    pub = Publisher(config['root'],config['base_url'],config['token'],config.get('feed_title','微信文章'))
     path = Path(path)
     with (pub.root/'publish.lock').open('a') as lock:
         fcntl.flock(lock,fcntl.LOCK_EX)
-        Publisher(config['root'],config['base_url'],config['token'])
+        Publisher(config['root'],config['base_url'],config['token'],config.get('feed_title','微信文章'))
         temp = path.with_name(path.name+'.'+uuid.uuid4().hex+'.tmp')
         try:
             with open(temp,'x',opener=lambda name,flags:os.open(name,flags,0o600)) as stream:
@@ -212,13 +226,16 @@ def configure(path, config):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--config', required=True)
-    parser.add_argument('action', choices=['status', 'prepare', 'commit', 'abort', 'remove'])
+    parser.add_argument('action', choices=['status', 'prepare', 'commit', 'abort', 'remove', 'refresh'])
     args = parser.parse_args()
     config = json.loads(Path(args.config).read_text())
-    pub = Publisher(config['root'], config['base_url'], config['token'])
-    request = json.load(sys.stdin) if args.action != 'status' else {}
+    pub = Publisher(config['root'], config['base_url'], config['token'],config.get('feed_title','微信文章'))
+    request = json.load(sys.stdin) if args.action not in ('status','refresh') else {}
     if args.action == 'status':
         result = pub.status()
+    elif args.action == 'refresh':
+        current=pub.status()
+        result=pub.commit([],uuid.uuid4().hex,current['revision'],remove_ids=[])
     elif args.action == 'prepare':
         pub.prepare(request['batch'])
         result = {'ready': True}

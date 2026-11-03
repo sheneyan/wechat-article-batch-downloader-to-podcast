@@ -26,6 +26,16 @@ class CoreTests(unittest.TestCase):
         xml=ET.fromstring(make_rss([ep],'https://pod.test/wechat/private'))
         self.assertIn('原文发布日期未知',xml.findtext('channel/item/description'))
 
+    def test_one_feed_can_include_wechat_and_grok_with_stable_distinct_guids(self):
+        wechat=episode(1)
+        grok={**episode(2), 'source_kind':'grok','account':'每日 X','source_url':'','title':'每日 X 口播'}
+        root=ET.fromstring(make_rss([wechat,grok],'https://pod.test/wechat/private',title='我的订阅'))
+        self.assertEqual(root.findtext('channel/title'),'我的订阅')
+        items={item.findtext('guid'):item for item in root.findall('channel/item')}
+        self.assertIn('wechat-'+wechat['id'],items)
+        self.assertIn('grok-'+grok['id'],items)
+        self.assertIsNone(items['grok-'+grok['id']].find('link'))
+
     def test_empty_article_date_does_not_abort_archive_scan(self):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp)/'公众号'

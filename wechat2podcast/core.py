@@ -91,7 +91,7 @@ def scan_archive(root):
                 if row.get('author') and row['author'] != account:
                     intro += f"作者，{row['author']}。"
                 speech = intro + '\n\n' + body
-                articles[aid] = dict(id=aid, title=row['title'], account=account,
+                articles[aid] = dict(id=aid, title=row['title'], account=account,source_kind='wechat',is_test=False,
                                      author=row.get('author', ''), source_url=url,
                                      published_at=published, raw_publish_time=row.get('publish_time') or '', source_path=str(source),
                                      speech=speech,
@@ -116,22 +116,24 @@ def select_online(current, incoming, limit=20):
     return sorted(online, key=lambda a: (a['published_at'], a['id']), reverse=True), removed
 
 
-def make_rss(episodes, base_url):
+def make_rss(episodes, base_url, title='微信文章'):
     base_url = base_url.rstrip('/')
     root = ET.Element('rss', version='2.0')
     channel = ET.SubElement(root, 'channel')
-    for name, value in [('title', '微信文章'), ('link', base_url + '/feed.xml'),
-                        ('description', '个人收藏的微信文章，使用 macOS 语音朗读。'),
+    for name, value in [('title', title), ('link', base_url + '/feed.xml'),
+                        ('description', '个人收藏的文章与口播稿，使用 macOS 语音朗读。'),
                         ('language', 'zh-cn'), ('ttl', '5')]:
         ET.SubElement(channel, name).text = value
     ET.SubElement(channel, f'{{{ATOM}}}link', href=base_url+'/feed.xml', rel='self', type='application/rss+xml')
-    ET.SubElement(channel, f'{{{ITUNES}}}author').text = '微信文章'
+    ET.SubElement(channel, f'{{{ITUNES}}}author').text = title
     ET.SubElement(channel, f'{{{ITUNES}}}explicit').text = 'false'
     for ep in sorted(episodes, key=lambda a: (a['published_at'], a['id']), reverse=True):
         item = ET.SubElement(channel, 'item')
-        ET.SubElement(item, 'title').text = ep['account'] + '｜' + ep['title']
-        ET.SubElement(item, 'guid', isPermaLink='false').text = 'wechat-' + ep['id']
-        ET.SubElement(item, 'link').text = ep['source_url']
+        grok=ep.get('source_kind')=='grok'
+        ET.SubElement(item, 'title').text = ep['title'] if grok else ep['account'] + '｜' + ep['title']
+        ET.SubElement(item, 'guid', isPermaLink='false').text = ('grok-' if grok else 'wechat-') + ep['id']
+        if ep.get('source_url'):
+            ET.SubElement(item, 'link').text = ep['source_url']
         ET.SubElement(item, 'pubDate').text = format_datetime(datetime.fromisoformat(ep['published_at']))
         date_note='\n原文发布日期未知；节目日期使用首次导入时间。' if ep.get('date_source')=='imported' else ''
         ET.SubElement(item, 'description').text = (
