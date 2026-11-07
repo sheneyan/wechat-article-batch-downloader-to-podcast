@@ -9,7 +9,7 @@ from pathlib import Path
 from .client import Client
 from .library import Library
 from .settings import load_config, save_config
-from .dependencies import check_dependencies
+from .dependencies import check_dependencies, system_voices
 from . import inbox_settings
 from .inbox_client import fetch, request as inbox_request
 from .script_library import import_scripts
@@ -59,7 +59,12 @@ def handle(req):
                     source_kind=article.get('source_kind','wechat'),is_test=article.get('is_test',False))
     if action == 'dependencies':
         return check_dependencies(req.get('voice','Tingting'))
+    if action == 'voices':
+        return dict(voices=system_voices())
     if action == 'dashboard':
+        return dashboard(root)
+    if action == 'delete_articles':
+        library.delete_articles(req['ids'])
         return dashboard(root)
     if action == 'scan':
         library.scan(Path(req['archive']).expanduser())

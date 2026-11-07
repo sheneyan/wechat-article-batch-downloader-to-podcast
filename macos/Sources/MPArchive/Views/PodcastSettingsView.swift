@@ -10,7 +10,8 @@ struct PodcastSettingsView: View {
     Text("下载目录更改在重新打开应用后生效；已有归档继续保留。").font(.caption).foregroundStyle(.secondary)
     TextField("Python 可执行文件",text:$store.python)
     Button("检查本机环境"){Task{await store.checkDependencies()}}.disabled(store.busy)
-    TextField("系统语音",text:$store.voice)
+    Picker("系统音色",selection:$store.voice){ForEach(store.selectableVoices){Text($0.label).tag($0.id)}}.disabled(store.busy)
+    Button("刷新本机音色"){Task{await store.loadVoices()}}.disabled(store.busy)
     Stepper("语速：\(store.rate)",value:$store.rate,in:80...400,step:10)
    }
    Section("口播稿收件") {
@@ -32,7 +33,7 @@ struct PodcastSettingsView: View {
     HStack {Button("保存配置"){Task{await store.saveSettings()}};Button("测试已保存的 SSH"){Task{await store.connection()}};Button("部署 / 更新发布组件"){Task{await store.connection(deploy:true)}}}.disabled(store.busy)
    }
    PodcastActivityView(store:store)
-  }.formStyle(.grouped).padding(12).task{if !store.configLoaded {await store.loadSettings()};if !store.inboxConfigLoaded {await store.loadInboxSettings()}}
+  }.formStyle(.grouped).padding(12).task{if !store.configLoaded {await store.loadSettings()};if !store.inboxConfigLoaded {await store.loadInboxSettings()};if store.voices.isEmpty {await store.loadVoices()}}
  }
  private func chooseDirectory() {let p = NSOpenPanel();p.canChooseDirectories = true;p.canChooseFiles = false;p.canCreateDirectories = true;if p.runModal() == .OK,let url = p.url {store.archive = url.path}}
 }

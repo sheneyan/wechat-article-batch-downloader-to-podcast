@@ -9,6 +9,7 @@ import Foundation
  @Published var sourceFilter: PodcastSourceFilter = .all {didSet{selected = []}}
  @Published var showTests = false {didSet{selected = []}}
  @Published var detail: PodcastArticleDetail?
+ @Published var voices: [PodcastVoice] = []
  @Published var inboxSettings = InboxSettings()
  @Published var inboxConfigLoaded = false
  @Published var online: PodcastOnline?
@@ -58,6 +59,21 @@ import Foundation
  func saveSettings() async {await work("正在保存配置") {let data = try JSONEncoder().encode(settings);let fields = try JSONSerialization.jsonObject(with:data);settings = try await request("save_config",["settings":fields]);configLoaded = true;invalidateOnline();progress = "配置已保存；请重新刷新在线列表"}}
  func invalidateOnline() {online = nil;onlineUpdated = nil;onlineSelection = [];plan = nil;onlineError = ""}
  func checkDependencies() async {await work("正在检查本机环境") {let result: PodcastMessage = try await request("dependencies",["voice":voice]);progress = result.message}}
+ func loadVoices() async {await work("正在读取本机音色") {let result: PodcastVoices = try await request("voices");voices = result.voices;progress = "本机音色已读取"}}
+ var selectableVoices: [PodcastVoice] {
+  var result = voices.filter{$0.language.hasPrefix("zh") || $0.id == voice}
+  if !result.contains(where:{$0.id == voice}) {result.insert(PodcastVoice(id:voice,language:"当前设置"),at:0)}
+  return result
+ }
+ func deleteArticles(_ ids: [String]) async {
+  guard !busy,!ids.isEmpty else{return}
+  await work("正在删除本地文章与音频") {
+   stopPlayback()
+   let result: PodcastDashboard = try await request("delete_articles",["ids":ids]);articles = result.articles
+   selected.subtract(ids);detail = nil;plan = nil
+   progress = "已删除 \(ids.count) 篇本地文章与音频，后续扫描和拉取不再导入；线上节目未改动"
+  }
+ }
  func connection(deploy: Bool = false) async {await work(deploy ? "正在部署发布组件" : "正在测试 SSH") {let result: PodcastMessage = try await request(deploy ? "deploy" : "test_connection");progress = result.message}}
  func refreshOnline() async {
   await work("正在读取服务器节目列表") {do {let result: PodcastOnline = try await request("online");online = result;onlineSelection.formIntersection(Set(result.episodes.map(\.id)));onlineUpdated = Date();onlineError = "";progress = "在线列表已刷新"} catch {onlineError = error.localizedDescription;throw error}}

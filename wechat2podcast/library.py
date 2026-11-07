@@ -2,6 +2,8 @@
 import json
 import os
 import tempfile
+import re
+import shutil
 from pathlib import Path
 from datetime import datetime
 
@@ -27,8 +29,35 @@ class Library:
     def __init__(self, root):
         self.root = Path(root)
 
+    def deleted_ids(self):
+        path = self.root/'.deleted.json'
+        return set(json.loads(path.read_text())) if path.exists() else set()
+
+    def delete_articles(self, ids):
+        if not ids or len(set(ids)) != len(ids) or any(not isinstance(aid,str) or not re.fullmatch(r'[0-9a-f]{20}',aid) for aid in ids):
+            raise ValueError('请选择有效且不重复的完整文章编号')
+        deleted = self.deleted_ids()
+        known = {a['id'] for a in self.articles()} | deleted
+        if any(aid not in known for aid in ids):
+            raise ValueError('文章已变化，请刷新列表后重试')
+        paths = []
+        for parent in (self.root,self.root.parent/'previews'):
+            if parent.is_symlink():
+                raise ValueError('不能删除符号链接目录内的文件')
+            for aid in ids:
+                path = parent/aid
+                if path.is_symlink() or path.resolve().parent != parent.resolve():
+                    raise ValueError('不能删除符号链接或本地库以外的文件')
+                paths.append(path)
+        # Persist intent before cleanup so interruption cannot reimport deleted entries.
+        atomic_json(self.root/'.deleted.json',sorted(deleted | set(ids)))
+        for path in paths:
+            if path.exists():
+                shutil.rmtree(path)
+
     def scan(self, archive):
-        found = scan_archive(archive)
+        deleted = self.deleted_ids()
+        found = [a for a in scan_archive(archive) if a['id'] not in deleted]
         for article in found:
             folder = self.root/article['id']
             folder.mkdir(parents=True, exist_ok=True)
@@ -40,7 +69,8 @@ class Library:
         return found
 
     def articles(self):
-        result = [json.loads(p.read_text()) for p in self.root.glob('*/article.json')]
+        deleted = self.deleted_ids()
+        result = [json.loads(p.read_text()) for p in self.root.glob('*/article.json') if p.parent.name not in deleted]
         return sorted(result, key=lambda a: (a['published_at'], a['id']), reverse=True)
 
     def find(self, prefix):

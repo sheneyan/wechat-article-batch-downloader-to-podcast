@@ -14,12 +14,15 @@ def import_scripts(library,raw):
     if (raw/'documents').is_dir():
         raw=raw/'documents'
     entries=[]
+    deleted=library.deleted_ids()
     for path in sorted(raw.glob('*.json')):
         if path.name=='state.json':
             continue
         original=json.loads(path.read_text())
         doc=verify_document(original)
         aid=hashlib.sha256(('grok-script:'+doc['id']).encode()).hexdigest()[:20]
+        if aid in deleted:
+            continue
         folder=library.root/aid
         saved=folder/'article.json'
         previous=json.loads(saved.read_text()) if saved.exists() else {}

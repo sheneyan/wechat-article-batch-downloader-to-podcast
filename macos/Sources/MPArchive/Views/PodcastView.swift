@@ -2,6 +2,9 @@ import SwiftUI
 
 struct PodcastView: View {
  @ObservedObject var store: PodcastStore
+ @State private var deletingIDs: [String] = []
+ @State private var deletingTitles = ""
+ @State private var confirmDelete = false
  var body: some View {
   VStack(spacing:0) {
    HStack {TextField("搜索标题、来源或日期",text:$store.query).textFieldStyle(.roundedBorder);Button("扫描归档"){Task{await store.scan()}}.disabled(store.busy);Button("拉取口播稿"){Task{await store.pullScripts()}}.disabled(store.busy)}.padding()
@@ -15,6 +18,11 @@ struct PodcastView: View {
    }
    HStack {
     Text("\(store.visible.count) 篇 · 已选 \(store.selectedArticles.count)").foregroundStyle(.secondary)
+    Button(role:.destructive){
+     deletingIDs = store.selectedArticles.map(\.id)
+     deletingTitles = store.selectedArticles.prefix(3).map(\.title).joined(separator:"\n")
+     confirmDelete = true
+    } label:{Label("删除…",systemImage:"trash")}.disabled(store.busy || store.selectedArticles.isEmpty)
     Spacer()
     Button("查看稿件"){Task{await store.showDetail()}}.disabled(store.busy || store.selectedArticles.count != 1)
     Button("试听片段"){Task{await store.render(preview:true)}}.disabled(store.busy || store.selectedArticles.count != 1 || !store.canRenderSelection)
@@ -26,6 +34,10 @@ struct PodcastView: View {
    Text("音频保存在本机。生成完成后，选择文章并查看发布预览，确认后才会上传。在线状态以最近一次刷新为准。").font(.caption).foregroundStyle(.secondary).padding(.horizontal).padding(.bottom,10)
   }.navigationTitle("音频库")
    .sheet(item:$store.detail){detail in PodcastArticleDetailView(detail:detail)}
+   .alert("删除 \(deletingIDs.count) 篇本地文章？",isPresented:$confirmDelete){
+    Button("取消",role:.cancel){}
+    Button("删除本地文章与音频",role:.destructive){let ids = deletingIDs;Task{await store.deleteArticles(ids)}}
+   } message:{Text(deletingTitles + "\n\n将永久删除本地文章记录、已生成音频和试听，后续扫描与拉取不会重新导入。原始下载文件保留。线上节目请在“在线播客”中单独下架。")}
  }
 }
 struct PodcastActivityView: View {

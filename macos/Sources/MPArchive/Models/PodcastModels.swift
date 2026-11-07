@@ -70,6 +70,12 @@ struct PodcastEpisode: Decodable, Identifiable {
  let duration: Double?
 }
 struct PodcastDashboard: Decodable {let articles: [PodcastArticle];let library: String}
+struct PodcastVoice: Decodable, Identifiable {
+ let id: String
+ let language: String
+ var label: String {let name = id == "Tingting" ? "婷婷" : id == "Meijia" ? "美佳" : id == "Sinji" ? "善怡" : id;return name + " · " + (language == "zh_CN" ? "普通话" : language == "zh_TW" ? "台湾中文" : language == "zh_HK" ? "粤语" : language)}
+}
+struct PodcastVoices: Decodable {let voices: [PodcastVoice]}
 struct PodcastOnline: Decodable {
  let revision: String
  let episodes: [PodcastEpisode]

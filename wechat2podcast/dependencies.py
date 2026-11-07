@@ -2,6 +2,18 @@
 import shutil
 import subprocess
 import sys
+import re
+
+
+def system_voices():
+    result=subprocess.run(['/usr/bin/say','-v','?'],check=True,capture_output=True,text=True,timeout=15)
+    voices=[]
+    for line in result.stdout.splitlines():
+        match=re.match(r'^(.+?)\s+([a-z]{2,3}_[A-Z]{2})\s+#',line)
+        if match:
+            name,language=match.groups()
+            voices.append(dict(id=name,language=language))
+    return voices
 
 
 def check_dependencies(voice='Tingting'):
