@@ -34,6 +34,24 @@ class GuiTests(unittest.TestCase):
                             source_path='/archive/article.md',content_sha256='b'*64,speech='正文。')
         atomic_json(self.folder/'article.json', self.article)
 
+    def test_voice_preview_uses_current_settings_without_changing_articles(self):
+        before=(self.folder/'article.json').read_bytes()
+        captured={}
+        def render(speech,output,voice,rate):
+            captured.update(text=speech.read_text(),voice=voice,rate=rate,input=speech)
+            output.write_bytes(b'sample')
+            return dict(duration=2,voice=voice,rate=rate)
+        with patch('wechat2podcast.audio.render_audio',side_effect=render):
+            result=handle(dict(action='voice_preview',library=str(self.library),config='unused',voice='Tingting',rate=240))
+        self.assertEqual(captured['voice'],'Tingting');self.assertEqual(captured['rate'],240)
+        self.assertIn('你好',captured['text'])
+        self.assertFalse(captured['input'].exists())
+        self.assertEqual(Path(result['audio_path']).read_bytes(),b'sample')
+        self.assertEqual((self.folder/'article.json').read_bytes(),before)
+        self.assertFalse((self.folder/'audio.mp3').exists())
+        with self.assertRaises(ValueError):
+            handle(dict(action='voice_preview',library=str(self.library),config='unused',rate=0))
+
     def test_local_readiness_is_separate_from_online_state(self):
         result = dashboard(self.library)
         self.assertEqual(result['articles'][0]['local_state'], 'missing')

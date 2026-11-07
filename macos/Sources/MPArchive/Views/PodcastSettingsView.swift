@@ -11,7 +11,10 @@ struct PodcastSettingsView: View {
     TextField("Python 可执行文件",text:$store.python)
     Button("检查本机环境"){Task{await store.checkDependencies()}}.disabled(store.busy)
     Picker("系统音色",selection:$store.voice){ForEach(store.selectableVoices){Text($0.label).tag($0.id)}}.disabled(store.busy)
-    Button("刷新本机音色"){Task{await store.loadVoices()}}.disabled(store.busy)
+    HStack {
+     Button(store.playingVoicePreview ? "停止试听" : "试听"){if store.playingVoicePreview {store.stopPlayback()}else{Task{await store.previewVoice()}}}
+     Button("刷新本机音色"){Task{await store.loadVoices()}}
+    }.disabled(store.busy)
     Stepper("语速：\(store.rate)",value:$store.rate,in:80...400,step:10)
    }
    Section("口播稿收件") {

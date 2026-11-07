@@ -4,6 +4,7 @@ import subprocess
 import sys
 import os
 import signal
+import tempfile
 from pathlib import Path
 
 from .client import Client
@@ -13,6 +14,7 @@ from .dependencies import check_dependencies, system_voices
 from . import inbox_settings
 from .inbox_client import fetch, request as inbox_request
 from .script_library import import_scripts
+from . import audio
 
 
 def dashboard(root):
@@ -69,10 +71,19 @@ def handle(req):
     if action == 'scan':
         library.scan(Path(req['archive']).expanduser())
         return dashboard(root)
-    if action in ('render','preview'):
+    if action in ('render','preview','voice_preview'):
         rate = int(req.get('rate',180))
         if not 1 <= rate <= 500:
             raise ValueError('语速请选择 1–500')
+        if action == 'voice_preview':
+            folder=root.parent/'previews'
+            folder.mkdir(parents=True,exist_ok=True)
+            output=folder/'voice-sample.mp3'
+            with tempfile.TemporaryDirectory(prefix='.voice-',dir=folder) as temp:
+                speech=Path(temp)/'speech.txt'
+                speech.write_text('你好，这是当前音色和语速的试听。选择适合自己的声音，让阅读和收听更加轻松。',encoding='utf-8')
+                info=audio.render_audio(speech,output,req.get('voice','Tingting'),rate)
+            return dict(audio_path=str(output.resolve()),**info)
         path,info,cached = library.render(library.find(req['id']),req.get('voice','Tingting'),rate,
                                          action=='preview',int(req.get('characters',260)))
         return dict(audio_path=str(path.resolve()),cached=cached,**info)

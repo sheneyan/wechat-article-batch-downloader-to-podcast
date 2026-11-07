@@ -60,6 +60,16 @@ import Foundation
  func invalidateOnline() {online = nil;onlineUpdated = nil;onlineSelection = [];plan = nil;onlineError = ""}
  func checkDependencies() async {await work("正在检查本机环境") {let result: PodcastMessage = try await request("dependencies",["voice":voice]);progress = result.message}}
  func loadVoices() async {await work("正在读取本机音色") {let result: PodcastVoices = try await request("voices");voices = result.voices;progress = "本机音色已读取"}}
+ var playingVoicePreview: Bool {playing && playingTitle == "音色试听"}
+ func previewVoice() async {
+  guard !busy else{return}
+  let selectedVoice = voice,selectedRate = rate
+  await work("正在生成音色试听") {
+   stopPlayback()
+   let audio: PodcastAudio = try await request("voice_preview",["voice":selectedVoice,"rate":selectedRate])
+   if !cancelled {try play(path:audio.audio_path,title:"音色试听");progress = "音色试听 · \(selectedVoice) · 语速 \(selectedRate)"}
+  }
+ }
  var selectableVoices: [PodcastVoice] {
   var result = voices.filter{$0.language.hasPrefix("zh") || $0.id == voice}
   if !result.contains(where:{$0.id == voice}) {result.insert(PodcastVoice(id:voice,language:"当前设置"),at:0)}
