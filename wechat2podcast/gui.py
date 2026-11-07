@@ -15,6 +15,7 @@ from . import inbox_settings
 from .inbox_client import fetch, request as inbox_request
 from .script_library import import_scripts
 from . import audio
+from . import qwen
 
 
 def dashboard(root):
@@ -44,6 +45,11 @@ def handle(req):
     config = Path(req['config']).expanduser()
     library = Library(root)
     inbox_profile=root.parent/'inbox-reader.json'
+    tts_profile=root.parent/'tts.json'
+    if action=='tts_config':
+        return qwen.load(tts_profile)
+    if action=='save_tts_config':
+        return qwen.save(tts_profile,req['settings'])
     if action=='inbox_config':
         return inbox_settings.load(inbox_profile)
     if action=='save_inbox_config':
@@ -60,9 +66,11 @@ def handle(req):
         return dict(id=article['id'],title=article['title'],text=article['speech'],notes=article.get('notes',''),
                     source_kind=article.get('source_kind','wechat'),is_test=article.get('is_test',False))
     if action == 'dependencies':
+        if req.get('voice','').startswith('qwen:'):
+            return qwen.check(req.get('qwen') or qwen.load(tts_profile))
         return check_dependencies(req.get('voice','Tingting'))
     if action == 'voices':
-        return dict(voices=system_voices())
+        return dict(voices=system_voices()+[dict(id='qwen:'+name,language='zh_CN') for name in qwen.SPEAKERS])
     if action == 'dashboard':
         return dashboard(root)
     if action == 'delete_articles':
@@ -72,6 +80,7 @@ def handle(req):
         library.scan(Path(req['archive']).expanduser())
         return dashboard(root)
     if action in ('render','preview','voice_preview'):
+        options={'qwen':req.get('qwen') or qwen.load(tts_profile)} if req.get('voice','').startswith('qwen:') else {}
         rate = int(req.get('rate',180))
         if not 1 <= rate <= 500:
             raise ValueError('语速请选择 1–500')
@@ -82,10 +91,10 @@ def handle(req):
             with tempfile.TemporaryDirectory(prefix='.voice-',dir=folder) as temp:
                 speech=Path(temp)/'speech.txt'
                 speech.write_text('你好，这是当前音色和语速的试听。选择适合自己的声音，让阅读和收听更加轻松。',encoding='utf-8')
-                info=audio.render_audio(speech,output,req.get('voice','Tingting'),rate)
+                info=audio.render_audio(speech,output,req.get('voice','Tingting'),rate,**options)
             return dict(audio_path=str(output.resolve()),**info)
         path,info,cached = library.render(library.find(req['id']),req.get('voice','Tingting'),rate,
-                                         action=='preview',int(req.get('characters',260)))
+                                         action=='preview',int(req.get('characters',260)),**options)
         return dict(audio_path=str(path.resolve()),cached=cached,**info)
     if action == 'config':
         return load_config(config)

@@ -52,6 +52,17 @@ class GuiTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             handle(dict(action='voice_preview',library=str(self.library),config='unused',rate=0))
 
+    def test_qwen_preview_and_voice_catalogue_use_local_engine(self):
+        settings=dict(python='/local/qwen/python',model='/local/model',speed=1.5)
+        atomic_json(self.library.parent/'tts.json',settings)
+        with patch('wechat2podcast.gui.system_voices',return_value=[]):
+            names=[v['id'] for v in handle(dict(action='voices',library=str(self.library),config='unused'))['voices']]
+        self.assertEqual(names,['qwen:Uncle_Fu','qwen:Dylan','qwen:Eric'])
+        with patch('wechat2podcast.audio.render_audio',return_value=dict(duration=1)) as render:
+            handle(dict(action='voice_preview',library=str(self.library),config='unused',voice='qwen:Eric'))
+        self.assertEqual(render.call_args.args[2],'qwen:Eric')
+        self.assertEqual(render.call_args.kwargs['qwen'],settings)
+
     def test_local_readiness_is_separate_from_online_state(self):
         result = dashboard(self.library)
         self.assertEqual(result['articles'][0]['local_state'], 'missing')

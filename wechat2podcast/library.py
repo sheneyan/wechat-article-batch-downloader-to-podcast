@@ -79,7 +79,7 @@ class Library:
             raise ValueError(f'文章 ID 不存在或不唯一: {prefix}')
         return matches[0]
 
-    def render(self, article, voice='Tingting', rate=180, preview=False, characters=260):
+    def render(self, article, voice='Tingting', rate=180, preview=False, characters=260, qwen=None):
         if article.get('is_test'):
             raise ValueError('测试稿不参与语音转换或发布')
         folder = self.root/article['id']
@@ -88,15 +88,20 @@ class Library:
         folder.mkdir(parents=True, exist_ok=True)
         path = folder/'audio.mp3'
         info_path = folder/'audio.json'
+        signature=None
+        if voice.startswith('qwen:'):
+            from . import qwen as qwen_tts
+            qwen=qwen or qwen_tts.load(self.root.parent/'tts.json')
+            signature=qwen_tts.signature(qwen)
         if not preview and path.exists() and info_path.exists():
             old = json.loads(info_path.read_text())
-            if (old.get('content_sha256'), old.get('voice'), old.get('rate')) == (article['content_sha256'], voice, rate):
+            if (old.get('content_sha256'), old.get('voice'), old.get('rate'),old.get('render_signature')) == (article['content_sha256'], voice, rate,signature):
                 actual = audio_info(path)
                 if actual['audio_sha256'] == old['audio_sha256']:
                     return path, old, True
         speech = preview_text(article['speech'], characters) if preview else article['speech']
         (folder/'speech.txt').write_text(speech, encoding='utf-8')
-        metadata = render_audio(folder/'speech.txt', path, voice, rate)
+        metadata = render_audio(folder/'speech.txt', path, voice, rate,**({'qwen':qwen} if signature else {}))
         metadata.update(content_sha256=article['content_sha256'], preview=preview)
         atomic_json(info_path, metadata)
         return path, metadata, False

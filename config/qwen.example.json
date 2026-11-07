@@ -1,0 +1,5 @@
+{
+  "python": "~/Library/Application Support/Wechat2Podcast/QwenTTS/venv/bin/python",
+  "model": "~/Library/Application Support/Wechat2Podcast/QwenTTS/models/1.7B-CustomVoice-4bit",
+  "speed": 1.25
+}

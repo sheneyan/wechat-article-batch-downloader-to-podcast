@@ -73,8 +73,13 @@ struct PodcastDashboard: Decodable {let articles: [PodcastArticle];let library: 
 struct PodcastVoice: Decodable, Identifiable {
  let id: String
  let language: String
- var label: String {let name = id == "Tingting" ? "婷婷" : id == "Meijia" ? "美佳" : id == "Sinji" ? "善怡" : id;return name + " · " + (language == "zh_CN" ? "普通话" : language == "zh_TW" ? "台湾中文" : language == "zh_HK" ? "粤语" : language)}
+ var label: String {
+  let qwen = ["qwen:Uncle_Fu":"Qwen · Uncle_Fu（低沉男声）","qwen:Dylan":"Qwen · Dylan（北京口音男声）","qwen:Eric":"Qwen · Eric（四川口音男声）"]
+  if let name = qwen[id] {return name}
+  let name = id == "Tingting" ? "婷婷" : id == "Meijia" ? "美佳" : id == "Sinji" ? "善怡" : id;return name + " · " + (language == "zh_CN" ? "普通话" : language == "zh_TW" ? "台湾中文" : language == "zh_HK" ? "粤语" : language)
+ }
 }
+struct QwenSettings: Codable {var python = "";var model = "";var speed = 1.25}
 struct PodcastVoices: Decodable {let voices: [PodcastVoice]}
 struct PodcastOnline: Decodable {
  let revision: String

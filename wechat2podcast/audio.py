@@ -33,18 +33,30 @@ def audio_info(path):
                 audio_file=digest+'.mp3', duration=duration)
 
 
-def render_audio(speech_path, output, voice='Tingting', rate=180):
-    require_audio(voice)
+def render_audio(speech_path, output, voice='Tingting', rate=180, qwen=None):
+    is_qwen=voice.startswith('qwen:')
+    if is_qwen:
+        from . import qwen as qwen_tts
+        qwen=qwen_tts.validate(qwen or qwen_tts.defaults())
+    else:
+        require_audio(voice)
     output = Path(output)
     output.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix='.tts-', dir=output.parent) as temp:
         temp = Path(temp)
-        subprocess.run(['/usr/bin/say', '-v', voice, '-r', str(rate), '-f', str(speech_path),
-                        '-o', str(temp/'speech.aiff')], check=True, timeout=1800)
+        source=temp/('speech.wav' if is_qwen else 'speech.aiff')
+        performance={}
+        if is_qwen:
+            performance=qwen_tts.render_wave(speech_path,source,voice,qwen)
+        else:
+            subprocess.run(['/usr/bin/say', '-v', voice, '-r', str(rate), '-f', str(speech_path),
+                            '-o', str(source)], check=True, timeout=1800)
+        filters=['-af',f"atempo={qwen['speed']}"] if is_qwen else []
         subprocess.run(['ffmpeg', '-hide_banner', '-loglevel', 'error', '-nostdin', '-y',
-                        '-i', str(temp/'speech.aiff'), '-map', '0:a:0', '-ac', '1', '-ar', '24000',
+                        '-i', str(source), *filters, '-map', '0:a:0', '-ac', '1', '-ar', '24000',
                         '-c:a', 'libmp3lame', '-b:a', '48k', '-map_metadata', '-1',
                         str(temp/'audio.mp3')], check=True, timeout=600)
         metadata = audio_info(temp/'audio.mp3')
         os.replace(temp/'audio.mp3', output)
-    return {**metadata, 'voice': voice, 'rate': rate}
+    return {**metadata, **performance, 'voice': voice, 'rate': rate, 'engine':'qwen' if is_qwen else 'system',
+            **({'render_signature':qwen_tts.signature(qwen),'speed':qwen['speed']} if is_qwen else {})}

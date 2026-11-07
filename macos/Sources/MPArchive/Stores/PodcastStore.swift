@@ -10,6 +10,8 @@ import Foundation
  @Published var showTests = false {didSet{selected = []}}
  @Published var detail: PodcastArticleDetail?
  @Published var voices: [PodcastVoice] = []
+ @Published var qwenSettings = QwenSettings()
+ @Published var qwenConfigLoaded = false
  @Published var inboxSettings = InboxSettings()
  @Published var inboxConfigLoaded = false
  @Published var online: PodcastOnline?
@@ -44,7 +46,7 @@ import Foundation
   defer {busy = false}
   do {try await operation();if cancelled {progress = "任务已停止"}} catch {self.error = error.localizedDescription;progress = "操作未完成"}
  }
- func initialize() async {guard !initialized else{return};initialized = true;await scan(indexOnly:true);await loadSettings();await loadInboxSettings()}
+ func initialize() async {guard !initialized else{return};initialized = true;await scan(indexOnly:true);await loadSettings();await loadInboxSettings();await loadQwenSettings()}
  func scan(indexOnly: Bool = false) async {
   await work("正在扫描本地文章") {let result: PodcastDashboard = try await request(indexOnly ? "dashboard" : "scan",["archive":(archive as NSString).expandingTildeInPath]);articles = result.articles;progress = "已载入 \(articles.count) 篇文章"}
  }
@@ -58,20 +60,30 @@ import Foundation
  func loadSettings() async {await work("正在读取发布配置") {settings = try await request("config");configLoaded = true;progress = "发布采用手动操作"}}
  func saveSettings() async {await work("正在保存配置") {let data = try JSONEncoder().encode(settings);let fields = try JSONSerialization.jsonObject(with:data);settings = try await request("save_config",["settings":fields]);configLoaded = true;invalidateOnline();progress = "配置已保存；请重新刷新在线列表"}}
  func invalidateOnline() {online = nil;onlineUpdated = nil;onlineSelection = [];plan = nil;onlineError = ""}
- func checkDependencies() async {await work("正在检查本机环境") {let result: PodcastMessage = try await request("dependencies",["voice":voice]);progress = result.message}}
+ var isQwen: Bool {voice.hasPrefix("qwen:")}
+ func speechFields() throws -> [String:Any] {
+  var fields: [String:Any] = ["voice":voice,"rate":rate]
+  if isQwen {fields["qwen"] = try JSONSerialization.jsonObject(with:JSONEncoder().encode(qwenSettings))}
+  return fields
+ }
+ func loadQwenSettings() async {await work("正在读取本地 Qwen 配置") {qwenSettings = try await request("tts_config");qwenConfigLoaded = true;progress = "本地语音配置已读取"}}
+ func saveQwenSettings() async {await work("正在保存 Qwen 配置") {let data = try JSONEncoder().encode(qwenSettings);qwenSettings = try await request("save_tts_config",["settings":JSONSerialization.jsonObject(with:data)]);qwenConfigLoaded = true;progress = "Qwen 路径与倍速已保存"}}
+ func checkDependencies() async {await work("正在检查本机环境") {let result: PodcastMessage = try await request("dependencies",speechFields());progress = result.message}}
  func loadVoices() async {await work("正在读取本机音色") {let result: PodcastVoices = try await request("voices");voices = result.voices;progress = "本机音色已读取"}}
  var playingVoicePreview: Bool {playing && playingTitle == "音色试听"}
  func previewVoice() async {
   guard !busy else{return}
-  let selectedVoice = voice,selectedRate = rate
+  let selectedVoice = voice,selectedRate = rate,selectedSpeed = qwenSettings.speed
   await work("正在生成音色试听") {
    stopPlayback()
-   let audio: PodcastAudio = try await request("voice_preview",["voice":selectedVoice,"rate":selectedRate])
-   if !cancelled {try play(path:audio.audio_path,title:"音色试听");progress = "音色试听 · \(selectedVoice) · 语速 \(selectedRate)"}
+   let fields = try speechFields()
+   let audio: PodcastAudio = try await request("voice_preview",fields)
+   if !cancelled {try play(path:audio.audio_path,title:"音色试听");progress = "音色试听 · \(selectedVoice) · " + (selectedVoice.hasPrefix("qwen:") ? "\(selectedSpeed) 倍速" : "语速 \(selectedRate)")}
   }
  }
  var selectableVoices: [PodcastVoice] {
   var result = voices.filter{$0.language.hasPrefix("zh") || $0.id == voice}
+  for id in ["qwen:Uncle_Fu","qwen:Dylan","qwen:Eric"] where !result.contains(where:{$0.id == id}) {result.append(PodcastVoice(id:id,language:"zh_CN"))}
   if !result.contains(where:{$0.id == voice}) {result.insert(PodcastVoice(id:voice,language:"当前设置"),at:0)}
   return result
  }
@@ -92,9 +104,11 @@ import Foundation
   guard canRenderSelection else{error = "请选择非测试稿件；测试稿不能试听或生成音频";return}
   let items = selectedArticles
   await work(preview ? "正在生成试听" : "正在生成音频") {
+   let parameters = try speechFields()
    for (index,item) in items.enumerated() {
     if cancelled {break};progress = "\(preview ? "试听" : "生成") \(index+1)/\(items.count) · \(item.title)"
-    let audio: PodcastAudio = try await request(preview ? "preview" : "render",["id":item.id,"voice":voice,"rate":rate,"characters":260])
+    var fields = parameters;fields["id"] = item.id;fields["characters"] = 260
+    let audio: PodcastAudio = try await request(preview ? "preview" : "render",fields)
     if preview && !cancelled {try play(path:audio.audio_path,title:item.title);break}
    }
    let result: PodcastDashboard = try await request("dashboard");articles = result.articles

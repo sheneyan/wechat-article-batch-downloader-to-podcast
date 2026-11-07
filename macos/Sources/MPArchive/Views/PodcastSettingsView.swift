@@ -10,12 +10,18 @@ struct PodcastSettingsView: View {
     Text("下载目录更改在重新打开应用后生效；已有归档继续保留。").font(.caption).foregroundStyle(.secondary)
     TextField("Python 可执行文件",text:$store.python)
     Button("检查本机环境"){Task{await store.checkDependencies()}}.disabled(store.busy)
-    Picker("系统音色",selection:$store.voice){ForEach(store.selectableVoices){Text($0.label).tag($0.id)}}.disabled(store.busy)
+    Picker("音色",selection:$store.voice){ForEach(store.selectableVoices){Text($0.label).tag($0.id)}}.disabled(store.busy)
     HStack {
      Button(store.playingVoicePreview ? "停止试听" : "试听"){if store.playingVoicePreview {store.stopPlayback()}else{Task{await store.previewVoice()}}}
      Button("刷新本机音色"){Task{await store.loadVoices()}}
     }.disabled(store.busy)
-    Stepper("语速：\(store.rate)",value:$store.rate,in:80...400,step:10)
+    if store.isQwen {
+     Stepper(value:$store.qwenSettings.speed,in:0.75...2.0,step:0.05){Text("Qwen 倍速：\(store.qwenSettings.speed,format:.number.precision(.fractionLength(2)))")}.disabled(store.busy)
+     TextField("Qwen Python",text:$store.qwenSettings.python).disabled(store.busy)
+     TextField("Qwen 模型目录",text:$store.qwenSettings.model).disabled(store.busy)
+     Button("保存 Qwen 配置"){Task{await store.saveQwenSettings()}}.disabled(store.busy || !store.qwenConfigLoaded)
+     Text("完全在本机生成，长文章分段处理，可能需要数分钟。倍速与路径修改后请保存配置。").font(.caption).foregroundStyle(.secondary)
+    } else {Stepper("语速：\(store.rate)",value:$store.rate,in:80...400,step:10).disabled(store.busy)}
    }
    Section("口播稿收件") {
     TextField("收件 URL",text:$store.inboxSettings.base_url)
@@ -36,7 +42,7 @@ struct PodcastSettingsView: View {
     HStack {Button("保存配置"){Task{await store.saveSettings()}};Button("测试已保存的 SSH"){Task{await store.connection()}};Button("部署 / 更新发布组件"){Task{await store.connection(deploy:true)}}}.disabled(store.busy)
    }
    PodcastActivityView(store:store)
-  }.formStyle(.grouped).padding(12).task{if !store.configLoaded {await store.loadSettings()};if !store.inboxConfigLoaded {await store.loadInboxSettings()};if store.voices.isEmpty {await store.loadVoices()}}
+  }.formStyle(.grouped).padding(12).task{if !store.configLoaded {await store.loadSettings()};if !store.inboxConfigLoaded {await store.loadInboxSettings()};if !store.qwenConfigLoaded {await store.loadQwenSettings()};if store.voices.isEmpty {await store.loadVoices()}}
  }
  private func chooseDirectory() {let p = NSOpenPanel();p.canChooseDirectories = true;p.canChooseFiles = false;p.canCreateDirectories = true;if p.runModal() == .OK,let url = p.url {store.archive = url.path}}
 }
